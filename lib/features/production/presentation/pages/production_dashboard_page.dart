@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../data/providers/production_providers.dart';
 
 /// Sort options for production
-enum ProductionSortBy {
-  pickupDate, // Tanggal Ambil
-  customerName, // Nama Pemesan
-  productName, // Nama Produk
-  productSize, // Ukuran Pesanan
-}
+enum ProductionSortBy { pickupDate, customerName, productName, productSize }
 
 extension ProductionSortByExtension on ProductionSortBy {
   String get label {
@@ -23,19 +23,6 @@ extension ProductionSortByExtension on ProductionSortBy {
         return 'Nama Kue';
       case ProductionSortBy.productSize:
         return 'Ukuran';
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case ProductionSortBy.pickupDate:
-        return Icons.calendar_today;
-      case ProductionSortBy.customerName:
-        return Icons.person;
-      case ProductionSortBy.productName:
-        return Icons.cake;
-      case ProductionSortBy.productSize:
-        return Icons.straighten;
     }
   }
 }
@@ -69,7 +56,7 @@ class _ProductionDashboardPageState
     return Scaffold(
       body: Column(
         children: [
-          // Custom Header
+          // Header - Consistent with Dashboard
           _buildHeader(context),
 
           // Content
@@ -104,7 +91,8 @@ class _ProductionDashboardPageState
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         border: Border(
@@ -119,6 +107,7 @@ class _ProductionDashboardPageState
             'Produksi',
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
+
           const Spacer(),
 
           // Sort Dropdown
@@ -131,16 +120,13 @@ class _ProductionDashboardPageState
             child: DropdownButtonHideUnderline(
               child: DropdownButton<ProductionSortBy>(
                 value: _sortBy,
-                icon: const Icon(Icons.sort, size: 18),
+                icon: const Icon(Icons.keyboard_arrow_down, size: 18),
                 items: ProductionSortBy.values.map((sort) {
                   return DropdownMenuItem(
                     value: sort,
-                    child: Row(
-                      children: [
-                        Icon(sort.icon, size: 16, color: Colors.grey.shade600),
-                        const SizedBox(width: 8),
-                        Text(sort.label, style: const TextStyle(fontSize: 13)),
-                      ],
+                    child: Text(
+                      sort.label,
+                      style: const TextStyle(fontSize: 13),
                     ),
                   );
                 }).toList(),
@@ -166,6 +152,17 @@ class _ProductionDashboardPageState
             },
           ),
 
+          // Print Button
+          OutlinedButton.icon(
+            onPressed: _printProduction,
+            icon: const Icon(Icons.print, size: 18),
+            label: const Text('Print'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+          const SizedBox(width: 8),
+
           // Refresh
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -174,6 +171,74 @@ class _ProductionDashboardPageState
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _printProduction() async {
+    final productionState = ref.read(productionProvider);
+
+    productionState.when(
+      initial: () {},
+      loading: () {},
+      success: (data) async {
+        final doc = pw.Document();
+
+        doc.addPage(
+          pw.Page(
+            pageFormat: PdfPageFormat.a4,
+            build: (pw.Context context) {
+              return pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text(
+                    'Daftar Produksi',
+                    style: pw.TextStyle(
+                      fontSize: 20,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Text(
+                    'LF Kitchen - ${AppFormatters.dateMedium.format(DateTime.now())}',
+                  ),
+                  pw.SizedBox(height: 16),
+                  pw.Text('Total: ${data.totalItems} item'),
+                  pw.Text('Pending: ${data.pendingItems} item'),
+                  pw.Text('Selesai: ${data.completedItems} item'),
+                  pw.SizedBox(height: 24),
+                  ...data.productionByDate.map((dateGroup) {
+                    return pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          dateGroup.date != null
+                              ? DateFormat(
+                                  'dd MMM yyyy',
+                                ).format(dateGroup.date!)
+                              : 'Belum ditentukan',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.SizedBox(height: 4),
+                        ...dateGroup.items.map((item) {
+                          return pw.Text(
+                            '  • ${item.productName}: ${item.totalQuantity} pcs',
+                          );
+                        }),
+                        pw.SizedBox(height: 8),
+                      ],
+                    );
+                  }),
+                ],
+              );
+            },
+          ),
+        );
+
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => doc.save(),
+        );
+      },
+      error: (_, __) {},
     );
   }
 
@@ -295,8 +360,6 @@ class _ProductionItemRow extends StatelessWidget {
   final _FlattenedProductionItem item;
 
   const _ProductionItemRow({required this.item});
-
-  static final _dateFormat = DateFormat('dd MMM', 'id_ID');
 
   @override
   Widget build(BuildContext context) {
@@ -428,8 +491,6 @@ class _SummaryBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = MediaQuery.of(context).size.width >= 900;
-
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -440,10 +501,7 @@ class _SummaryBar extends StatelessWidget {
               value: totalItems.toString(),
               subtitle: 'Semua item',
               icon: Icons.assignment_outlined,
-              iconBgColor: AppColors.primary.withValues(alpha: 0.15),
-              iconColor: AppColors.primary,
-              valueColor: AppColors.primary,
-              isCompact: !isDesktop,
+              color: AppColors.primary,
             ),
           ),
           const SizedBox(width: 12),
@@ -453,10 +511,7 @@ class _SummaryBar extends StatelessWidget {
               value: pendingItems.toString(),
               subtitle: 'Dalam proses',
               icon: Icons.hourglass_empty,
-              iconBgColor: Colors.orange.withValues(alpha: 0.15),
-              iconColor: Colors.orange,
-              valueColor: Colors.orange,
-              isCompact: !isDesktop,
+              color: Colors.orange,
             ),
           ),
           const SizedBox(width: 12),
@@ -466,10 +521,7 @@ class _SummaryBar extends StatelessWidget {
               value: completedItems.toString(),
               subtitle: 'Finished',
               icon: Icons.check_circle_outline,
-              iconBgColor: Colors.green.withValues(alpha: 0.15),
-              iconColor: Colors.green,
-              valueColor: Colors.green,
-              isCompact: !isDesktop,
+              color: Colors.green,
             ),
           ),
         ],
@@ -483,20 +535,14 @@ class _SummaryCard extends StatelessWidget {
   final String value;
   final String subtitle;
   final IconData icon;
-  final Color iconBgColor;
-  final Color iconColor;
-  final Color valueColor;
-  final bool isCompact;
+  final Color color;
 
   const _SummaryCard({
     required this.title,
     required this.value,
     required this.subtitle,
     required this.icon,
-    required this.iconBgColor,
-    required this.iconColor,
-    required this.valueColor,
-    this.isCompact = false,
+    required this.color,
   });
 
   @override
@@ -508,7 +554,7 @@ class _SummaryCard extends StatelessWidget {
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding: EdgeInsets.all(isCompact ? 12 : 16),
+        padding: const EdgeInsets.all(16),
         child: Row(
           children: [
             Expanded(
@@ -517,40 +563,32 @@ class _SummaryCard extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      fontSize: isCompact ? 11 : 12,
-                      color: Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     value,
                     style: TextStyle(
-                      fontSize: isCompact ? 22 : 28,
+                      fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: valueColor,
+                      color: color,
                     ),
                   ),
-                  if (!isCompact)
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
                 ],
               ),
             ),
-            if (!isCompact)
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: iconBgColor,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(icon, color: iconColor, size: 22),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
               ),
+              child: Icon(icon, color: color, size: 22),
+            ),
           ],
         ),
       ),

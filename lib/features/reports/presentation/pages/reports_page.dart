@@ -5,14 +5,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/async_state.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../orders/data/models/order.dart';
 import '../../../orders/data/providers/order_providers.dart';
+import '../../../purchasing/data/models/purchase.dart';
 import '../../../purchasing/data/providers/purchase_providers.dart';
 
-/// Reports Page - Halaman Laporan (tanpa tabs)
+/// Reports Page - Halaman Laporan (tanpa tabs, tanpa menu Pesanan)
 class ReportsPage extends ConsumerStatefulWidget {
   const ReportsPage({super.key});
 
@@ -49,7 +54,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     return Scaffold(
       body: Column(
         children: [
-          // Header
+          // Header - Consistent with Dashboard
           _buildHeader(context),
 
           // Content
@@ -61,7 +66,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Report Type Selector
+                    // Report Type Selector (3 types only, no Pesanan)
                     _buildReportSelector(),
                     const SizedBox(height: 24),
 
@@ -79,7 +84,8 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
 
   Widget _buildHeader(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         border: Border(
@@ -96,7 +102,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ),
           const SizedBox(width: 24),
 
-          // Date Range
+          // Date Range Picker
           InkWell(
             onTap: _pickDateRange,
             borderRadius: BorderRadius.circular(8),
@@ -121,54 +127,31 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
 
           const Spacer(),
 
-          // Export Button
-          PopupMenuButton<String>(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.primary,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.download, size: 18, color: Colors.white),
-                  SizedBox(width: 8),
-                  Text(
-                    'Export',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+          // Print Button
+          OutlinedButton.icon(
+            onPressed: _printReport,
+            icon: const Icon(Icons.print, size: 18),
+            label: const Text('Print'),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
-            onSelected: (value) => _handleExport(value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'csv',
-                child: Row(
-                  children: [
-                    Icon(Icons.table_chart),
-                    SizedBox(width: 8),
-                    Text('Export CSV'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'print',
-                child: Row(
-                  children: [
-                    Icon(Icons.print),
-                    SizedBox(width: 8),
-                    Text('Cetak / Print'),
-                  ],
-                ),
-              ),
-            ],
           ),
-
           const SizedBox(width: 8),
+
+          // Export Button
+          ElevatedButton.icon(
+            onPressed: _exportToCsv,
+            icon: const Icon(Icons.download, size: 18),
+            label: const Text('Export'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // Refresh
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
         ],
       ),
@@ -176,11 +159,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   }
 
   Widget _buildReportSelector() {
+    // Only 3 report types: Penjualan, Pembelian, Keuntungan
     final reports = [
       {'id': 'penjualan', 'label': 'Penjualan', 'icon': Icons.attach_money},
       {'id': 'pembelian', 'label': 'Pembelian', 'icon': Icons.shopping_cart},
       {'id': 'keuntungan', 'label': 'Keuntungan', 'icon': Icons.trending_up},
-      {'id': 'pesanan', 'label': 'Pesanan', 'icon': Icons.receipt_long},
     ];
 
     return Wrap(
@@ -215,7 +198,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     );
   }
 
-  Widget _buildReportContent(orderState, purchaseState) {
+  Widget _buildReportContent(
+    AsyncState<List<Order>> orderState,
+    AsyncState<List<Purchase>> purchaseState,
+  ) {
     switch (_selectedReport) {
       case 'penjualan':
         return _buildSalesReport(orderState);
@@ -223,19 +209,17 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         return _buildPurchaseReport(purchaseState);
       case 'keuntungan':
         return _buildProfitReport(orderState, purchaseState);
-      case 'pesanan':
-        return _buildOrderReport(orderState);
       default:
         return const SizedBox();
     }
   }
 
-  Widget _buildSalesReport(orderState) {
+  Widget _buildSalesReport(AsyncState<List<Order>> orderState) {
     return orderState.when(
       initial: () => const Center(child: Text('Memuat data...')),
       loading: () => const Center(child: CircularProgressIndicator()),
       success: (orders) {
-        final filteredOrders = (orders as List<Order>).where((o) {
+        final filteredOrders = orders.where((o) {
           final orderDate = o.orderDate;
           return orderDate.isAfter(
                 _dateRange!.start.subtract(const Duration(days: 1)),
@@ -258,7 +242,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Summary Cards
             Row(
               children: [
                 Expanded(
@@ -290,12 +273,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               ],
             ),
             const SizedBox(height: 24),
-
-            // Data Table
             _buildDataTable(
               columns: ['Tanggal', 'Pelanggan', 'Total', 'DP', 'Status'],
               rows: filteredOrders
-                  .take(20)
+                  .take(50)
                   .map(
                     (o) => [
                       AppFormatters.dateShort.format(o.orderDate),
@@ -314,7 +295,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     );
   }
 
-  Widget _buildPurchaseReport(purchaseState) {
+  Widget _buildPurchaseReport(AsyncState<List<Purchase>> purchaseState) {
     return purchaseState.when(
       initial: () => const Center(child: Text('Memuat data...')),
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -328,10 +309,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               );
         }).toList();
 
-        final totalPurchases = filteredPurchases.fold<double>(
-          0,
-          (sum, p) => sum + p.totalCost,
-        );
+        // Safe conversion to double
+        double totalPurchases = 0;
+        for (final p in filteredPurchases) {
+          totalPurchases += p.totalCost;
+        }
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,17 +342,16 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               ],
             ),
             const SizedBox(height: 24),
-
             _buildDataTable(
-              columns: ['Tanggal', 'Supplier', 'Total', 'Status'],
+              columns: ['Tanggal', 'Supplier', 'Total', 'No. Invoice'],
               rows: filteredPurchases
-                  .take(20)
+                  .take(50)
                   .map(
                     (p) => [
                       AppFormatters.dateShort.format(p.purchaseDate),
                       p.supplierName ?? '-',
                       AppFormatters.formatCurrency(p.totalCost),
-                      'Completed',
+                      p.invoiceNumber ?? '-',
                     ],
                   )
                   .toList(),
@@ -382,7 +363,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     );
   }
 
-  Widget _buildProfitReport(orderState, purchaseState) {
+  Widget _buildProfitReport(
+    AsyncState<List<Order>> orderState,
+    AsyncState<List<Purchase>> purchaseState,
+  ) {
     double totalRevenue = 0;
     double totalCost = 0;
 
@@ -390,18 +374,17 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       initial: () {},
       loading: () {},
       success: (orders) {
-        totalRevenue = (orders as List<Order>)
-            .where(
-              (o) =>
-                  o.status == OrderStatus.completed &&
-                  o.orderDate.isAfter(
-                    _dateRange!.start.subtract(const Duration(days: 1)),
-                  ) &&
-                  o.orderDate.isBefore(
-                    _dateRange!.end.add(const Duration(days: 1)),
-                  ),
-            )
-            .fold(0.0, (sum, o) => sum + o.totalAmount);
+        for (final o in orders) {
+          if (o.status == OrderStatus.completed &&
+              o.orderDate.isAfter(
+                _dateRange!.start.subtract(const Duration(days: 1)),
+              ) &&
+              o.orderDate.isBefore(
+                _dateRange!.end.add(const Duration(days: 1)),
+              )) {
+            totalRevenue += o.totalAmount;
+          }
+        }
       },
       error: (_, __) {},
     );
@@ -410,23 +393,22 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       initial: () {},
       loading: () {},
       success: (purchases) {
-        totalCost = purchases
-            .where(
-              (p) =>
-                  p.purchaseDate.isAfter(
-                    _dateRange!.start.subtract(const Duration(days: 1)),
-                  ) &&
-                  p.purchaseDate.isBefore(
-                    _dateRange!.end.add(const Duration(days: 1)),
-                  ),
-            )
-            .fold(0.0, (sum, p) => sum + p.totalCost);
+        for (final p in purchases) {
+          if (p.purchaseDate.isAfter(
+                _dateRange!.start.subtract(const Duration(days: 1)),
+              ) &&
+              p.purchaseDate.isBefore(
+                _dateRange!.end.add(const Duration(days: 1)),
+              )) {
+            totalCost += p.totalCost;
+          }
+        }
       },
       error: (_, __) {},
     );
 
     final profit = totalRevenue - totalCost;
-    final profitMargin = totalRevenue > 0 ? (profit / totalRevenue * 100) : 0;
+    final profitMargin = totalRevenue > 0 ? (profit / totalRevenue * 100) : 0.0;
 
     return Column(
       children: [
@@ -452,8 +434,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ],
         ),
         const SizedBox(height: 24),
-
-        // Profit Card
         Card(
           elevation: 0,
           color: profit >= 0 ? Colors.green.shade50 : Colors.red.shade50,
@@ -492,41 +472,6 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildOrderReport(orderState) {
-    return orderState.when(
-      initial: () => const Center(child: Text('Memuat data...')),
-      loading: () => const Center(child: CircularProgressIndicator()),
-      success: (orders) {
-        final filteredOrders = (orders as List<Order>).where((o) {
-          final date = o.deliveryDate ?? o.createdAt;
-          return date.isAfter(
-                _dateRange!.start.subtract(const Duration(days: 1)),
-              ) &&
-              date.isBefore(_dateRange!.end.add(const Duration(days: 1)));
-        }).toList();
-
-        return _buildDataTable(
-          columns: ['Tanggal Ambil', 'Pelanggan', 'Tipe', 'Total', 'Status'],
-          rows: filteredOrders
-              .take(20)
-              .map(
-                (o) => [
-                  o.deliveryDate != null
-                      ? AppFormatters.dateShort.format(o.deliveryDate!)
-                      : '-',
-                  o.customerName ?? '-',
-                  o.orderType.name,
-                  AppFormatters.formatCurrency(o.totalAmount),
-                  o.status.name,
-                ],
-              )
-              .toList(),
-        );
-      },
-      error: (msg, _) => Center(child: Text('Error: $msg')),
     );
   }
 
@@ -588,33 +533,60 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     }
   }
 
-  void _handleExport(String type) {
-    if (type == 'csv') {
-      _exportToCsv();
-    } else if (type == 'print') {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fitur print dalam pengembangan')),
-      );
-    }
+  Future<void> _printReport() async {
+    final doc = pw.Document();
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Laporan ${_selectedReport[0].toUpperCase()}${_selectedReport.substring(1)}',
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text(
+                'Periode: ${AppFormatters.dateMedium.format(_dateRange!.start)} - ${AppFormatters.dateMedium.format(_dateRange!.end)}',
+              ),
+              pw.SizedBox(height: 16),
+              pw.Text('LF Kitchen'),
+              pw.SizedBox(height: 24),
+              pw.Text('Silakan lihat detail di aplikasi.'),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => doc.save(),
+    );
   }
 
   Future<void> _exportToCsv() async {
     try {
       List<List<dynamic>> rows = [];
-      rows.add(['Laporan ${_selectedReport.toUpperCase()}']);
+      rows.add([
+        'Laporan ${_selectedReport[0].toUpperCase()}${_selectedReport.substring(1)}',
+      ]);
       rows.add([
         'Periode: ${AppFormatters.dateMedium.format(_dateRange!.start)} - ${AppFormatters.dateMedium.format(_dateRange!.end)}',
       ]);
       rows.add([]);
 
-      // Add data based on selected report
       final orderState = ref.read(orderListProvider);
       orderState.when(
         initial: () {},
         loading: () {},
         success: (orders) {
           rows.add(['Tanggal', 'Pelanggan', 'Total', 'Status']);
-          for (final o in (orders as List<Order>).take(100)) {
+          for (final o in orders.take(100)) {
             rows.add([
               AppFormatters.dateShort.format(o.orderDate),
               o.customerName ?? '-',
