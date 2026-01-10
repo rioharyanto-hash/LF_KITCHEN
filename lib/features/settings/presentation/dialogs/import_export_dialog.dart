@@ -193,7 +193,19 @@ class _ImportExportDialogState extends ConsumerState<ImportExportDialog> {
 
       final file = File(result.files.single.path!);
       final bytes = await file.readAsBytes();
-      final excel = Excel.decodeBytes(bytes);
+
+      // Try to decode Excel with error handling for format issues
+      Excel excel;
+      try {
+        excel = Excel.decodeBytes(bytes);
+      } catch (excelError) {
+        setState(() {
+          _isLoading = false;
+          _status =
+              'Error: Format Excel tidak didukung.\n\nCoba simpan ulang file sebagai "Excel Workbook (.xlsx)" dari Microsoft Excel atau Google Sheets.';
+        });
+        return;
+      }
 
       final sheet = excel.tables.values.first;
       final rows = sheet.rows;
