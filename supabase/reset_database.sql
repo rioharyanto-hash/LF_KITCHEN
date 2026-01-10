@@ -5,70 +5,27 @@
 -- Jalankan di Supabase SQL Editor
 -- ============================================
 
--- 1. Disable triggers temporarily
-SET session_replication_role = 'replica';
+-- Hapus data dari tabel yang ada
+-- Jalankan hanya untuk tabel yang ada di database Anda
 
--- 2. Truncate all tables (order matters due to foreign keys)
+-- Tabel utama (sesuaikan dengan database Anda)
+DELETE FROM order_items;
 
--- Order related
-TRUNCATE TABLE order_items CASCADE;
+DELETE FROM orders;
 
-TRUNCATE TABLE orders CASCADE;
+DELETE FROM invoices;
 
--- Invoice
-TRUNCATE TABLE invoices CASCADE;
+DELETE FROM products;
 
--- Purchase related
-TRUNCATE TABLE purchase_items CASCADE;
+DELETE FROM categories;
 
-TRUNCATE TABLE purchases CASCADE;
+DELETE FROM customers;
 
--- Master data
-TRUNCATE TABLE products CASCADE;
+-- Jika Anda memiliki tabel ini juga:
+-- DELETE FROM purchase_items;
+-- DELETE FROM purchases;
+-- DELETE FROM raw_materials;
+-- DELETE FROM suppliers;
 
-TRUNCATE TABLE categories CASCADE;
-
-TRUNCATE TABLE customers CASCADE;
-
-TRUNCATE TABLE raw_materials CASCADE;
-
-TRUNCATE TABLE suppliers CASCADE;
-
--- 3. Re-enable triggers
-SET session_replication_role = 'origin';
-
--- 4. Verify all tables are empty
-SELECT 'orders' as table_name, COUNT(*) as count
-FROM orders
-UNION ALL
-SELECT 'order_items', COUNT(*)
-FROM order_items
-UNION ALL
-SELECT 'invoices', COUNT(*)
-FROM invoices
-UNION ALL
-SELECT 'purchases', COUNT(*)
-FROM purchases
-UNION ALL
-SELECT 'purchase_items', COUNT(*)
-FROM purchase_items
-UNION ALL
-SELECT 'products', COUNT(*)
-FROM products
-UNION ALL
-SELECT 'categories', COUNT(*)
-FROM categories
-UNION ALL
-SELECT 'customers', COUNT(*)
-FROM customers
-UNION ALL
-SELECT 'raw_materials', COUNT(*)
-FROM raw_materials
-UNION ALL
-SELECT 'suppliers', COUNT(*)
-FROM suppliers;
-
--- ============================================
--- Setelah reset, Anda bisa import data baru
--- menggunakan fitur import Excel di aplikasi
--- ============================================
+-- Konfirmasi
+SELECT 'Database berhasil direset!' as status;
