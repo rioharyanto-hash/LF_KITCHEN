@@ -364,7 +364,7 @@ class _ImportExportDialogState extends ConsumerState<ImportExportDialog> {
       });
 
       await ref.read(productListProvider.notifier).loadProducts();
-      final products = ref.read(productListProvider).dataOrNull ?? [];
+      final products = ref.read(productListProvider).data ?? [];
 
       if (products.isEmpty) {
         setState(() {
