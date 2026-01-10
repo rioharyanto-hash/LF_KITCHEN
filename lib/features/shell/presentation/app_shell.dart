@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-/// Responsive App Shell
+import '../../../core/theme/app_theme.dart';
+
+/// Responsive App Shell dengan Sidebar Terstruktur
 /// - Mobile: Bottom Navigation Bar
-/// - Desktop: Sidebar Navigation
+/// - Desktop: Custom Sidebar dengan Group Navigation
 class AppShell extends StatelessWidget {
   final Widget child;
 
@@ -18,7 +20,6 @@ class AppShell extends StatelessWidget {
           ? Row(
               children: [
                 _DesktopSidebar(),
-                const VerticalDivider(width: 1),
                 Expanded(child: child),
               ],
             )
@@ -95,7 +96,6 @@ class _MobileBottomNav extends StatelessWidget {
         context.go('/production');
         break;
       case 4:
-        // Show more options bottom sheet
         _showMoreOptions(context);
         break;
     }
@@ -171,152 +171,284 @@ class _MobileBottomNav extends StatelessWidget {
   }
 }
 
+/// Custom Desktop Sidebar dengan Grouped Navigation
 class _DesktopSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final currentIndex = _calculateSelectedIndex(context);
+    final currentPath = GoRouterState.of(context).uri.toString();
+    final isExtended = MediaQuery.of(context).size.width >= 1100;
 
-    return NavigationRail(
-      extended: MediaQuery.of(context).size.width >= 1200,
-      minExtendedWidth: 200,
-      selectedIndex: currentIndex,
-      onDestinationSelected: (index) => _onItemTapped(index, context),
-      leading: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300, width: 2),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Image.asset(
-                'assets/images/logo.png',
-                width: 100,
-                height: 100,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'LF Kitchen',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-          ],
+    return Container(
+      width: isExtended ? 240 : 72,
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(
+          right: BorderSide(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+          ),
         ),
       ),
-      destinations: const [
-        NavigationRailDestination(
-          icon: Icon(Icons.dashboard_outlined),
-          selectedIcon: Icon(Icons.dashboard),
-          label: Text('Dashboard'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.shopping_cart_outlined),
-          selectedIcon: Icon(Icons.shopping_cart),
-          label: Text('Pesanan'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.point_of_sale_outlined),
-          selectedIcon: Icon(Icons.point_of_sale),
-          label: Text('Kasir'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.inventory_2_outlined),
-          selectedIcon: Icon(Icons.inventory_2),
-          label: Text('Snack Box'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.factory_outlined),
-          selectedIcon: Icon(Icons.factory),
-          label: Text('Produksi'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.receipt_long_outlined),
-          selectedIcon: Icon(Icons.receipt_long),
-          label: Text('Tagihan'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.shopping_bag_outlined),
-          selectedIcon: Icon(Icons.shopping_bag),
-          label: Text('Pembelian'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.cake_outlined),
-          selectedIcon: Icon(Icons.cake),
-          label: Text('Produk'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.people_outlined),
-          selectedIcon: Icon(Icons.people),
-          label: Text('Pelanggan'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.assessment_outlined),
-          selectedIcon: Icon(Icons.assessment),
-          label: Text('Laporan'),
-        ),
-        NavigationRailDestination(
-          icon: Icon(Icons.settings_outlined),
-          selectedIcon: Icon(Icons.settings),
-          label: Text('Pengaturan'),
-        ),
-      ],
+      child: Column(
+        children: [
+          // Logo Header
+          _buildHeader(context, isExtended),
+          const Divider(height: 1),
+
+          // Navigation Items
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // UTAMA
+                  _buildSectionHeader('UTAMA', isExtended),
+                  _NavItem(
+                    icon: Icons.dashboard,
+                    label: 'Dashboard',
+                    path: '/',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+                  _NavItem(
+                    icon: Icons.point_of_sale,
+                    label: 'Kasir / POS',
+                    path: '/pos',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // OPERASIONAL
+                  _buildSectionHeader('OPERASIONAL', isExtended),
+                  _NavItem(
+                    icon: Icons.shopping_cart,
+                    label: 'Pesanan',
+                    path: '/orders',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+                  _NavItem(
+                    icon: Icons.precision_manufacturing,
+                    label: 'Produksi',
+                    path: '/production',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+                  _NavItem(
+                    icon: Icons.inventory_2,
+                    label: 'Snack Box',
+                    path: '/snack-box',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // INVENTARIS & PRODUK
+                  _buildSectionHeader('INVENTARIS & PRODUK', isExtended),
+                  _NavItem(
+                    icon: Icons.restaurant_menu,
+                    label: 'Produk',
+                    path: '/products',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+                  _NavItem(
+                    icon: Icons.local_shipping,
+                    label: 'Pembelian',
+                    path: '/purchasing',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ADMINISTRASI
+                  _buildSectionHeader('ADMINISTRASI', isExtended),
+                  _NavItem(
+                    icon: Icons.receipt_long,
+                    label: 'Tagihan',
+                    path: '/invoices',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+                  _NavItem(
+                    icon: Icons.group,
+                    label: 'Pelanggan',
+                    path: '/customers',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+                  _NavItem(
+                    icon: Icons.bar_chart,
+                    label: 'Laporan',
+                    path: '/reports',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Settings at Bottom
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: _NavItem(
+              icon: Icons.settings,
+              label: 'Pengaturan',
+              path: '/settings',
+              currentPath: currentPath,
+              isExtended: isExtended,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  int _calculateSelectedIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/orders')) return 1;
-    if (location.startsWith('/pos')) return 2;
-    if (location.startsWith('/snack-box')) return 3;
-    if (location.startsWith('/production')) return 4;
-    if (location.startsWith('/invoices')) return 5;
-    if (location.startsWith('/purchasing')) return 6;
-    if (location.startsWith('/products')) return 7;
-    if (location.startsWith('/customers')) return 8;
-    if (location.startsWith('/reports')) return 9;
-    if (location.startsWith('/settings')) return 10;
-    return 0; // dashboard
+  Widget _buildHeader(BuildContext context, bool isExtended) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                'LF',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+          if (isExtended) ...[
+            const SizedBox(width: 12),
+            Text(
+              'LF Kitchen',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Theme.of(context).textTheme.titleLarge?.color,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 
-  void _onItemTapped(int index, BuildContext context) {
-    switch (index) {
-      case 0:
-        context.go('/');
-        break;
-      case 1:
-        context.go('/orders');
-        break;
-      case 2:
-        context.go('/pos');
-        break;
-      case 3:
-        context.go('/snack-box');
-        break;
-      case 4:
-        context.go('/production');
-        break;
-      case 5:
-        context.go('/invoices');
-        break;
-      case 6:
-        context.go('/purchasing');
-        break;
-      case 7:
-        context.go('/products');
-        break;
-      case 8:
-        context.go('/customers');
-        break;
-      case 9:
-        context.go('/reports');
-        break;
-      case 10:
-        context.go('/settings');
-        break;
-    }
+  Widget _buildSectionHeader(String title, bool isExtended) {
+    if (!isExtended) return const SizedBox(height: 8);
+
+    return Padding(
+      padding: const EdgeInsets.only(left: 12, bottom: 8),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.2,
+          color: Colors.grey.shade500,
+        ),
+      ),
+    );
+  }
+}
+
+/// Navigation Item Widget
+class _NavItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String path;
+  final String currentPath;
+  final bool isExtended;
+
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.path,
+    required this.currentPath,
+    required this.isExtended,
+  });
+
+  bool get isActive {
+    if (path == '/') return currentPath == '/';
+    return currentPath.startsWith(path);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => context.go(path),
+          borderRadius: BorderRadius.circular(10),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: EdgeInsets.symmetric(
+              horizontal: isExtended ? 12 : 0,
+              vertical: 10,
+            ),
+            decoration: BoxDecoration(
+              color: isActive ? AppColors.primary : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: isExtended
+                  ? MainAxisAlignment.start
+                  : MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: isActive ? Colors.white : Colors.grey.shade600,
+                ),
+                if (isExtended) ...[
+                  const SizedBox(width: 12),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                      color: isActive ? Colors.white : Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

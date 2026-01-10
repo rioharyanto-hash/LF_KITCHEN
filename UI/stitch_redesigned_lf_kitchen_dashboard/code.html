@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LF Kitchen - Dashboard</title>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              primary: "#8B3232", // Deep burgundy from the logo
+              "background-light": "#F8F5F2",
+              "background-dark": "#121212",
+              "sidebar-light": "#FFFFFF",
+              "sidebar-dark": "#1E1E1E",
+              "card-light": "#FFFFFF",
+              "card-dark": "#252525",
+            },
+            fontFamily: {
+              display: ["Plus Jakarta Sans", "sans-serif"],
+              sans: ["Plus Jakarta Sans", "sans-serif"],
+            },
+            borderRadius: {
+              DEFAULT: "12px",
+              "xl": "16px",
+            },
+          },
+        },
+      };
+    </script>
+<style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #3f3f46; }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 antialiased min-h-screen flex">
+<aside class="w-64 bg-sidebar-light dark:bg-sidebar-dark border-r border-slate-200 dark:border-slate-800 flex flex-col h-screen sticky top-0">
+<div class="p-6">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
+<span class="text-white font-bold text-xl">LF</span>
+</div>
+<h1 class="font-bold text-lg tracking-tight text-slate-800 dark:text-white">LF Kitchen</h1>
+</div>
+<nav class="space-y-6 custom-scrollbar overflow-y-auto flex-1">
+<div>
+<p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Utama</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary text-white shadow-md shadow-primary/20 transition-all" href="#">
+<span class="material-icons-round text-[20px]">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">point_of_sale</span>
+<span class="text-sm font-medium">Kasir / POS</span>
+</a>
+</div>
+</div>
+<div>
+<p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Operasional</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">shopping_cart</span>
+<span class="text-sm font-medium">Pesanan</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">precision_manufacturing</span>
+<span class="text-sm font-medium">Produksi</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">inventory_2</span>
+<span class="text-sm font-medium">Snack Box</span>
+</a>
+</div>
+</div>
+<div>
+<p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Inventaris &amp; Produk</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">restaurant_menu</span>
+<span class="text-sm font-medium">Produk</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">local_shipping</span>
+<span class="text-sm font-medium">Pembelian</span>
+</a>
+</div>
+</div>
+<div>
+<p class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Administrasi</p>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">receipt_long</span>
+<span class="text-sm font-medium">Tagihan</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">group</span>
+<span class="text-sm font-medium">Pelanggan</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">bar_chart</span>
+<span class="text-sm font-medium">Laporan</span>
+</a>
+</div>
+</div>
+</nav>
+</div>
+<div class="p-4 mt-auto border-t border-slate-100 dark:border-slate-800">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all" href="#">
+<span class="material-icons-round text-[20px]">settings</span>
+<span class="text-sm font-medium">Pengaturan</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 overflow-y-auto">
+<header class="h-16 bg-white dark:bg-sidebar-dark border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-8 sticky top-0 z-10">
+<div class="relative w-96">
+<span class="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
+<input class="w-full pl-10 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border-none focus:ring-2 focus:ring-primary/20 text-sm transition-all" placeholder="Cari transaksi, pelanggan, atau produk..." type="text"/>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-slate-400 hover:text-primary transition-colors">
+<span class="material-icons-round">refresh</span>
+</button>
+<button class="p-2 text-slate-400 hover:text-primary transition-colors relative">
+<span class="material-icons-round">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-sidebar-dark"></span>
+</button>
+<div class="h-8 w-[1px] bg-slate-200 dark:bg-slate-800 mx-2"></div>
+<div class="flex items-center gap-3 cursor-pointer group">
+<div class="text-right">
+<p class="text-sm font-semibold dark:text-white">Admin LF</p>
+<p class="text-[11px] text-slate-400 font-medium">Store Manager</p>
+</div>
+<div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden border-2 border-transparent group-hover:border-primary transition-all">
+<img alt="User Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwD9B7Xd3G0Aw6KrVy-TVckAda4sHMV_RhLiW_Q46lcO4Lz7ckkwvjaqxa1IdRQZl4s6JhRb657V6LaZQjf518x7jJZEjFsDKGJIvEvts9z3Bm_rzfpT8UrHoYT5Q9OOlxC0cO5tDeLbEYURbzR3ZBfMaA0-CEA5uRw-e0eAcEii9Qf_RGSPD1cussUUqNvoacCBzHHkRpsV7iBbHyoPTKprrQHVSZSFATSVDS81dTxNIaOnELuPF9Q-xYxmQHqBE56KcGYgJ8dFBj"/>
+</div>
+</div>
+</div>
+</header>
+<div class="p-8 space-y-8 max-w-7xl mx-auto">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+<div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Penjualan Hari Ini</p>
+<div class="p-2 bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600 rounded-lg">
+<span class="material-icons-round text-[20px]">payments</span>
+</div>
+</div>
+<h3 class="text-2xl font-bold text-emerald-600">Rp 0</h3>
+<p class="text-xs text-slate-400 mt-1 font-medium">0 transaksi berhasil</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">PO Pending</p>
+<div class="p-2 bg-amber-100 dark:bg-amber-500/10 text-amber-600 rounded-lg">
+<span class="material-icons-round text-[20px]">pending_actions</span>
+</div>
+</div>
+<h3 class="text-2xl font-bold text-amber-600">3</h3>
+<p class="text-xs text-slate-400 mt-1 font-medium">Menunggu diproses</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Siap Diambil</p>
+<div class="p-2 bg-blue-100 dark:bg-blue-500/10 text-blue-600 rounded-lg">
+<span class="material-icons-round text-[20px]">check_circle</span>
+</div>
+</div>
+<h3 class="text-2xl font-bold text-blue-600">2</h3>
+<p class="text-xs text-slate-400 mt-1 font-medium">Pesanan sudah siap</p>
+</div>
+<div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<p class="text-sm font-medium text-slate-500 dark:text-slate-400">Stok Rendah</p>
+<div class="p-2 bg-red-100 dark:bg-red-500/10 text-red-600 rounded-lg">
+<span class="material-icons-round text-[20px]">warning</span>
+</div>
+</div>
+<h3 class="text-2xl font-bold text-red-600">72</h3>
+<p class="text-xs text-slate-400 mt-1 font-medium">Butuh restok segera</p>
+</div>
+</div>
+<section>
+<h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+<span class="material-icons-round text-primary">bolt</span>
+                    Aksi Cepat
+                </h2>
+<div class="flex flex-wrap gap-4">
+<button class="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-xl shadow-lg shadow-primary/20 hover:brightness-110 active:scale-95 transition-all font-semibold">
+<span class="material-icons-round">add_shopping_cart</span>
+                        Pesanan Baru
+                    </button>
+<button class="flex items-center gap-2 px-6 py-3 bg-white dark:bg-card-dark text-slate-700 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all font-semibold">
+<span class="material-icons-round">receipt</span>
+                        Kasir / POS
+                    </button>
+<button class="flex items-center gap-2 px-6 py-3 bg-white dark:bg-card-dark text-slate-700 dark:text-white border border-slate-200 dark:border-slate-800 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 active:scale-95 transition-all font-semibold">
+<span class="material-icons-round">shopping_bag</span>
+                        Beli Bahan
+                    </button>
+</div>
+</section>
+<section>
+<div class="flex justify-between items-center mb-4">
+<h2 class="text-lg font-bold flex items-center gap-2">
+<span class="material-icons-round text-primary">event_note</span>
+                        Pengingat Pengambilan
+                    </h2>
+<button class="text-primary text-sm font-semibold hover:underline">Lihat Semua</button>
+</div>
+<div class="bg-card-light dark:bg-card-dark rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+<div class="divide-y divide-slate-100 dark:divide-slate-800">
+<div class="p-5 flex items-center gap-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex flex-col items-center justify-center w-20 h-20 bg-amber-500 text-white rounded-xl shadow-sm">
+<span class="text-[10px] font-bold uppercase tracking-widest opacity-80">Ambil</span>
+<span class="text-2xl font-bold">12</span>
+<span class="text-[10px] font-bold uppercase">Jan 2024</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<h4 class="font-bold text-lg dark:text-white">Bu Ani</h4>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">Confirmed</span>
+</div>
+<p class="text-sm text-slate-400 font-medium">PO #79cfd5d0 • 4 items</p>
+</div>
+<div class="text-right">
+<p class="text-xl font-bold text-slate-800 dark:text-white">Rp 150.000</p>
+<p class="text-xs text-slate-400">Created 09/01</p>
+</div>
+<button class="p-2 text-slate-300 hover:text-primary">
+<span class="material-icons-round">more_vert</span>
+</button>
+</div>
+<div class="p-5 flex items-center gap-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex flex-col items-center justify-center w-20 h-20 bg-emerald-500 text-white rounded-xl shadow-sm">
+<span class="text-[10px] font-bold uppercase tracking-widest opacity-80">Ambil</span>
+<span class="text-2xl font-bold">-</span>
+<span class="text-[10px] font-bold uppercase">Today</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<h4 class="font-bold text-lg dark:text-white">Anggun</h4>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Ready</span>
+</div>
+<p class="text-sm text-slate-400 font-medium">PO #5860d13c • 12 items</p>
+</div>
+<div class="text-right">
+<p class="text-xl font-bold text-slate-800 dark:text-white">Rp 1.240.000</p>
+<p class="text-xs text-slate-400">Created 08/01</p>
+</div>
+<button class="p-2 text-slate-300 hover:text-primary">
+<span class="material-icons-round">more_vert</span>
+</button>
+</div>
+<div class="p-5 flex items-center gap-6 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+<div class="flex flex-col items-center justify-center w-20 h-20 bg-emerald-500 text-white rounded-xl shadow-sm">
+<span class="text-[10px] font-bold uppercase tracking-widest opacity-80">Ambil</span>
+<span class="text-2xl font-bold">-</span>
+<span class="text-[10px] font-bold uppercase">Today</span>
+</div>
+<div class="flex-1">
+<div class="flex items-center gap-2 mb-1">
+<h4 class="font-bold text-lg dark:text-white">Pak Budi</h4>
+<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">Ready</span>
+</div>
+<p class="text-sm text-slate-400 font-medium">PO #f4965d16 • 8 items</p>
+</div>
+<div class="text-right">
+<p class="text-xl font-bold text-slate-800 dark:text-white">Rp 1.687.500</p>
+<p class="text-xs text-slate-400">Created 08/01</p>
+</div>
+<button class="p-2 text-slate-300 hover:text-primary">
+<span class="material-icons-round">more_vert</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<script>
+        // Optional: Simple Dark Mode Toggle via System Preference
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+    </script>
+
+</body></html>
