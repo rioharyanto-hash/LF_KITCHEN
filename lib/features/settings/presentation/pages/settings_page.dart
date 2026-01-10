@@ -6,6 +6,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../categories/data/models/category.dart';
 import '../../../categories/data/providers/category_providers.dart';
 import '../../data/providers/product_settings_provider.dart';
+import '../dialogs/import_export_dialog.dart';
 
 /// Settings Page - Halaman Pengaturan
 class SettingsPage extends ConsumerStatefulWidget {
@@ -246,6 +247,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     );
                   }).toList(),
                 ),
+            ],
+          ),
+
+          // Data Import/Export
+          _SettingsSection(
+            title: 'Data Produk',
+            children: [
+              ListTile(
+                leading: const Icon(Icons.upload_file),
+                title: const Text('Import / Export Produk'),
+                subtitle: const Text('Import dari Excel atau export ke file'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => const ImportExportDialog(),
+                  );
+                },
+              ),
             ],
           ),
 
