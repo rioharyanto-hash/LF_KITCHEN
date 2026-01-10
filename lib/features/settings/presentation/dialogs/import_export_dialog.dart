@@ -1,14 +1,14 @@
 import 'dart:io';
 
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../../../../../core/theme/app_theme.dart';
-import '../../../../products/data/models/product.dart';
-import '../../../../products/data/providers/product_providers.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../products/data/models/product.dart';
+import '../../../products/data/providers/product_providers.dart';
 
 /// Import/Export Products Dialog
 class ImportExportDialog extends ConsumerStatefulWidget {
@@ -270,15 +270,15 @@ class _ImportExportDialogState extends ConsumerState<ImportExportDialog> {
           Product(
             id: '',
             name: name,
-            category: _getCellValue(row, categoryIdx),
-            productType: _getCellValue(row, typeIdx),
-            size: _getCellValue(row, sizeIdx),
-            unit: _getCellValue(row, unitIdx),
+            category: _getCellValueOrNull(row, categoryIdx),
+            productType: _getCellValueOrNull(row, typeIdx),
+            size: _getCellValueOrNull(row, sizeIdx),
+            unit: _getCellValueOrNull(row, unitIdx),
             unitPrice: _parseDouble(_getCellValue(row, priceIdx)),
             specialPrice: _parseDouble(_getCellValue(row, specialPriceIdx)),
             costPrice: _parseDoubleOrNull(_getCellValue(row, costIdx)),
             stockQty: int.tryParse(_getCellValue(row, stockIdx)) ?? 0,
-            description: _getCellValue(row, descIdx),
+            description: _getCellValueOrNull(row, descIdx),
             createdAt: DateTime.now(),
           ),
         );
@@ -309,6 +309,11 @@ class _ImportExportDialogState extends ConsumerState<ImportExportDialog> {
   String _getCellValue(List<Data?> row, int? index) {
     if (index == null || index < 0 || index >= row.length) return '';
     return row[index]?.value?.toString().trim() ?? '';
+  }
+
+  String? _getCellValueOrNull(List<Data?> row, int? index) {
+    final val = _getCellValue(row, index);
+    return val.isEmpty ? null : val;
   }
 
   double _parseDouble(String value) {
