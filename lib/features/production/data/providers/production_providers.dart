@@ -9,12 +9,14 @@ import '../../../orders/data/repositories/order_repository.dart';
 class ProductionItem {
   final String productId;
   final String productName;
+  final String? productSize;
   final int totalQuantity;
   final List<ProductionOrderDetail> orders;
 
   ProductionItem({
     required this.productId,
     required this.productName,
+    this.productSize,
     required this.totalQuantity,
     required this.orders,
   });
