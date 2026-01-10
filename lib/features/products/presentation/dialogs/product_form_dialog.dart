@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../categories/data/providers/category_providers.dart';
+import '../../../settings/data/providers/product_settings_provider.dart';
 import '../../data/models/product.dart';
 import '../../data/providers/product_providers.dart';
 
@@ -34,39 +35,6 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
   String? _selectedUnit;
   bool _isLoading = false;
   bool get _isEditing => widget.product != null;
-
-  // Predefined options
-  static const List<String> _productTypes = [
-    'Cake',
-    'Pastry',
-    'Bread',
-    'Cookies',
-    'Snack',
-    'Minuman',
-    'Lainnya',
-  ];
-
-  static const List<String> _units = [
-    'pcs',
-    'box',
-    'slice',
-    'loyang',
-    'pack',
-    'botol',
-    'cup',
-  ];
-
-  static const List<String> _sizes = [
-    '16 cm',
-    '18 cm',
-    '20 cm',
-    '22 cm',
-    '24 cm',
-    'Small',
-    'Medium',
-    'Large',
-    'Regular',
-  ];
 
   @override
   void initState() {
@@ -177,72 +145,88 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
                         children: [
                           // Jenis (Product Type)
                           Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedProductType,
-                              decoration: const InputDecoration(
-                                labelText: 'Jenis',
-                                prefixIcon: Icon(Icons.cake_outlined),
-                              ),
-                              hint: const Text('Pilih Jenis'),
-                              isExpanded: true,
-                              items: [
-                                const DropdownMenuItem(
-                                  value: null,
-                                  child: Text('-- Pilih Jenis --'),
-                                ),
-                                ..._productTypes.map(
-                                  (type) => DropdownMenuItem(
-                                    value: type,
-                                    child: Text(type),
+                            child: Consumer(
+                              builder: (context, ref, child) {
+                                final settings = ref.watch(
+                                  productSettingsProvider,
+                                );
+                                return DropdownButtonFormField<String>(
+                                  value: _selectedProductType,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Jenis',
+                                    prefixIcon: Icon(Icons.cake_outlined),
                                   ),
-                                ),
-                              ],
-                              onChanged: (value) {
-                                setState(() => _selectedProductType = value);
+                                  hint: const Text('Pilih Jenis'),
+                                  isExpanded: true,
+                                  items: [
+                                    const DropdownMenuItem(
+                                      value: null,
+                                      child: Text('-- Pilih Jenis --'),
+                                    ),
+                                    ...settings.productTypes.map(
+                                      (type) => DropdownMenuItem(
+                                        value: type,
+                                        child: Text(type),
+                                      ),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    setState(
+                                      () => _selectedProductType = value,
+                                    );
+                                  },
+                                );
                               },
                             ),
                           ),
                           const SizedBox(width: 16),
                           // Ukuran (Size)
                           Expanded(
-                            child: Autocomplete<String>(
-                              initialValue: TextEditingValue(
-                                text: _sizeController.text,
-                              ),
-                              optionsBuilder: (textEditingValue) {
-                                if (textEditingValue.text.isEmpty) {
-                                  return _sizes;
-                                }
-                                return _sizes.where(
-                                  (size) => size.toLowerCase().contains(
-                                    textEditingValue.text.toLowerCase(),
-                                  ),
+                            child: Consumer(
+                              builder: (context, ref, child) {
+                                final settings = ref.watch(
+                                  productSettingsProvider,
                                 );
-                              },
-                              fieldViewBuilder:
-                                  (
-                                    context,
-                                    controller,
-                                    focusNode,
-                                    onFieldSubmitted,
-                                  ) {
-                                    // Sync controller
-                                    controller.text = _sizeController.text;
-                                    controller.addListener(() {
-                                      _sizeController.text = controller.text;
-                                    });
-                                    return TextFormField(
-                                      controller: controller,
-                                      focusNode: focusNode,
-                                      decoration: const InputDecoration(
-                                        labelText: 'Ukuran',
-                                        hintText: '22 cm',
-                                        prefixIcon: Icon(Icons.straighten),
+                                return Autocomplete<String>(
+                                  initialValue: TextEditingValue(
+                                    text: _sizeController.text,
+                                  ),
+                                  optionsBuilder: (textEditingValue) {
+                                    if (textEditingValue.text.isEmpty) {
+                                      return settings.sizes;
+                                    }
+                                    return settings.sizes.where(
+                                      (size) => size.toLowerCase().contains(
+                                        textEditingValue.text.toLowerCase(),
                                       ),
                                     );
                                   },
-                              onSelected: (selection) {
-                                _sizeController.text = selection;
+                                  fieldViewBuilder:
+                                      (
+                                        context,
+                                        controller,
+                                        focusNode,
+                                        onFieldSubmitted,
+                                      ) {
+                                        controller.text = _sizeController.text;
+                                        controller.addListener(() {
+                                          _sizeController.text =
+                                              controller.text;
+                                        });
+                                        return TextFormField(
+                                          controller: controller,
+                                          focusNode: focusNode,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Ukuran',
+                                            hintText: '22 cm',
+                                            prefixIcon: Icon(Icons.straighten),
+                                          ),
+                                        );
+                                      },
+                                  onSelected: (selection) {
+                                    _sizeController.text = selection;
+                                  },
+                                );
                               },
                             ),
                           ),
@@ -321,23 +305,32 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
                           const SizedBox(width: 16),
                           // Satuan (Unit)
                           Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedUnit,
-                              decoration: const InputDecoration(
-                                labelText: 'Satuan',
-                                prefixIcon: Icon(Icons.straighten),
-                              ),
-                              isExpanded: true,
-                              items: _units
-                                  .map(
-                                    (unit) => DropdownMenuItem(
-                                      value: unit,
-                                      child: Text(unit),
-                                    ),
-                                  )
-                                  .toList(),
-                              onChanged: (value) {
-                                setState(() => _selectedUnit = value);
+                            child: Consumer(
+                              builder: (context, ref, child) {
+                                final settings = ref.watch(
+                                  productSettingsProvider,
+                                );
+                                return DropdownButtonFormField<String>(
+                                  value: settings.units.contains(_selectedUnit)
+                                      ? _selectedUnit
+                                      : null,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Satuan',
+                                    prefixIcon: Icon(Icons.straighten),
+                                  ),
+                                  isExpanded: true,
+                                  items: settings.units
+                                      .map(
+                                        (unit) => DropdownMenuItem(
+                                          value: unit,
+                                          child: Text(unit),
+                                        ),
+                                      )
+                                      .toList(),
+                                  onChanged: (value) {
+                                    setState(() => _selectedUnit = value);
+                                  },
+                                );
                               },
                             ),
                           ),
