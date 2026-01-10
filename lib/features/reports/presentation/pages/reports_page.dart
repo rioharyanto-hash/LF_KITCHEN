@@ -86,19 +86,16 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
-          ),
-        ),
-      ),
+      decoration: BoxDecoration(color: AppColors.primary),
       child: Row(
         children: [
           const Text(
             'Laporan',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(width: 24),
 
@@ -109,16 +106,17 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
+                color: Colors.white.withValues(alpha: 0.15),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.date_range, size: 18),
+                  const Icon(Icons.date_range, size: 18, color: Colors.white),
                   const SizedBox(width: 8),
                   Text(
                     '${AppFormatters.dateMedium.format(_dateRange!.start)} - ${AppFormatters.dateMedium.format(_dateRange!.end)}',
-                    style: const TextStyle(fontSize: 13),
+                    style: const TextStyle(fontSize: 13, color: Colors.white),
                   ),
                 ],
               ),
@@ -130,10 +128,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           // Print Button
           OutlinedButton.icon(
             onPressed: _printReport,
-            icon: const Icon(Icons.print, size: 18),
-            label: const Text('Print'),
+            icon: const Icon(Icons.print, size: 18, color: Colors.white),
+            label: const Text('Print', style: TextStyle(color: Colors.white)),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
             ),
           ),
           const SizedBox(width: 8),
@@ -144,15 +143,18 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             icon: const Icon(Icons.download, size: 18),
             label: const Text('Export'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.primary,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
           ),
           const SizedBox(width: 8),
 
           // Refresh
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadData,
+          ),
         ],
       ),
     );

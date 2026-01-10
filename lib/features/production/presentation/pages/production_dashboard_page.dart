@@ -93,19 +93,16 @@ class _ProductionDashboardPageState
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        border: Border(
-          bottom: BorderSide(
-            color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
-          ),
-        ),
-      ),
+      decoration: BoxDecoration(color: AppColors.primary),
       child: Row(
         children: [
           const Text(
             'Produksi',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
           ),
 
           const Spacer(),
@@ -114,19 +111,25 @@ class _ProductionDashboardPageState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
+              color: Colors.white.withValues(alpha: 0.15),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
               borderRadius: BorderRadius.circular(8),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<ProductionSortBy>(
                 value: _sortBy,
-                icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: Colors.white,
+                ),
+                dropdownColor: AppColors.primary,
                 items: ProductionSortBy.values.map((sort) {
                   return DropdownMenuItem(
                     value: sort,
                     child: Text(
                       sort.label,
-                      style: const TextStyle(fontSize: 13),
+                      style: const TextStyle(fontSize: 13, color: Colors.white),
                     ),
                   );
                 }).toList(),
@@ -145,6 +148,7 @@ class _ProductionDashboardPageState
             icon: Icon(
               _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
               size: 20,
+              color: Colors.white,
             ),
             tooltip: _sortAscending ? 'Ascending' : 'Descending',
             onPressed: () {
@@ -155,17 +159,18 @@ class _ProductionDashboardPageState
           // Print Button
           OutlinedButton.icon(
             onPressed: _printProduction,
-            icon: const Icon(Icons.print, size: 18),
-            label: const Text('Print'),
+            icon: const Icon(Icons.print, size: 18, color: Colors.white),
+            label: const Text('Print', style: TextStyle(color: Colors.white)),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
             ),
           ),
           const SizedBox(width: 8),
 
           // Refresh
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () =>
                 ref.read(productionProvider.notifier).loadProduction(),
           ),

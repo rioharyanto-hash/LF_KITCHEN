@@ -21,6 +21,7 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _nameController;
+  late TextEditingController _sizeController;
   late TextEditingController _descriptionController;
   late TextEditingController _priceController;
   late TextEditingController _specialPriceController;
@@ -29,13 +30,49 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
   late TextEditingController _imageUrlController;
 
   String? _selectedCategory;
+  String? _selectedProductType;
+  String? _selectedUnit;
   bool _isLoading = false;
   bool get _isEditing => widget.product != null;
+
+  // Predefined options
+  static const List<String> _productTypes = [
+    'Cake',
+    'Pastry',
+    'Bread',
+    'Cookies',
+    'Snack',
+    'Minuman',
+    'Lainnya',
+  ];
+
+  static const List<String> _units = [
+    'pcs',
+    'box',
+    'slice',
+    'loyang',
+    'pack',
+    'botol',
+    'cup',
+  ];
+
+  static const List<String> _sizes = [
+    '16 cm',
+    '18 cm',
+    '20 cm',
+    '22 cm',
+    '24 cm',
+    'Small',
+    'Medium',
+    'Large',
+    'Regular',
+  ];
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.product?.name ?? '');
+    _sizeController = TextEditingController(text: widget.product?.size ?? '');
     _descriptionController = TextEditingController(
       text: widget.product?.description ?? '',
     );
@@ -55,6 +92,8 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
       text: widget.product?.imageUrl ?? '',
     );
     _selectedCategory = widget.product?.category;
+    _selectedProductType = widget.product?.productType;
+    _selectedUnit = widget.product?.unit ?? 'pcs';
 
     // Load categories
     Future.microtask(() {
@@ -65,6 +104,7 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
   @override
   void dispose() {
     _nameController.dispose();
+    _sizeController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
     _specialPriceController.dispose();
@@ -80,9 +120,9 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
 
     return Dialog(
       child: Container(
-        width: isDesktop ? 500 : double.infinity,
+        width: isDesktop ? 550 : double.infinity,
         constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
+          maxHeight: MediaQuery.of(context).size.height * 0.9,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -137,66 +177,176 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Category Dropdown
-                      Consumer(
-                        builder: (context, ref, child) {
-                          final categoriesState = ref.watch(
-                            categoryListProvider,
-                          );
-                          return categoriesState.when(
-                            initial: () => const LinearProgressIndicator(),
-                            loading: () => const LinearProgressIndicator(),
-                            success: (categories) {
-                              // Validate that selected category exists in list
-                              final categoryNames = categories
-                                  .map((c) => c.name)
-                                  .toList();
-                              final validValue =
-                                  _selectedCategory != null &&
-                                      categoryNames.contains(_selectedCategory)
-                                  ? _selectedCategory
-                                  : null;
-
-                              return DropdownButtonFormField<String>(
-                                value: validValue,
-                                decoration: const InputDecoration(
-                                  labelText: 'Kategori',
-                                  prefixIcon: Icon(Icons.category_outlined),
-                                ),
-                                hint: Text(
-                                  _selectedCategory != null &&
-                                          validValue == null
-                                      ? '$_selectedCategory (tidak ditemukan)'
-                                      : 'Pilih Kategori',
-                                ),
-                                isExpanded: true,
-                                items: [
-                                  const DropdownMenuItem(
-                                    value: null,
-                                    child: Text('-- Tanpa Kategori --'),
-                                  ),
-                                  ...categories.map(
-                                    (c) => DropdownMenuItem(
-                                      value: c.name,
-                                      child: Text(c.name),
-                                    ),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  setState(() => _selectedCategory = value);
-                                },
-                              );
-                            },
-                            error: (msg, _) => TextFormField(
-                              initialValue: _selectedCategory,
+                      // Jenis & Ukuran Row
+                      Row(
+                        children: [
+                          // Jenis (Product Type)
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedProductType,
                               decoration: const InputDecoration(
-                                labelText: 'Kategori',
-                                hintText: 'Ketik kategori',
+                                labelText: 'Jenis',
+                                prefixIcon: Icon(Icons.cake_outlined),
                               ),
-                              onChanged: (v) => _selectedCategory = v,
+                              hint: const Text('Pilih Jenis'),
+                              isExpanded: true,
+                              items: [
+                                const DropdownMenuItem(
+                                  value: null,
+                                  child: Text('-- Pilih Jenis --'),
+                                ),
+                                ..._productTypes.map(
+                                  (type) => DropdownMenuItem(
+                                    value: type,
+                                    child: Text(type),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (value) {
+                                setState(() => _selectedProductType = value);
+                              },
                             ),
-                          );
-                        },
+                          ),
+                          const SizedBox(width: 16),
+                          // Ukuran (Size)
+                          Expanded(
+                            child: Autocomplete<String>(
+                              initialValue: TextEditingValue(
+                                text: _sizeController.text,
+                              ),
+                              optionsBuilder: (textEditingValue) {
+                                if (textEditingValue.text.isEmpty) {
+                                  return _sizes;
+                                }
+                                return _sizes.where(
+                                  (size) => size.toLowerCase().contains(
+                                    textEditingValue.text.toLowerCase(),
+                                  ),
+                                );
+                              },
+                              fieldViewBuilder:
+                                  (
+                                    context,
+                                    controller,
+                                    focusNode,
+                                    onFieldSubmitted,
+                                  ) {
+                                    // Sync controller
+                                    controller.text = _sizeController.text;
+                                    controller.addListener(() {
+                                      _sizeController.text = controller.text;
+                                    });
+                                    return TextFormField(
+                                      controller: controller,
+                                      focusNode: focusNode,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Ukuran',
+                                        hintText: '22 cm',
+                                        prefixIcon: Icon(Icons.straighten),
+                                      ),
+                                    );
+                                  },
+                              onSelected: (selection) {
+                                _sizeController.text = selection;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Category & Unit Row
+                      Row(
+                        children: [
+                          // Category Dropdown
+                          Expanded(
+                            child: Consumer(
+                              builder: (context, ref, child) {
+                                final categoriesState = ref.watch(
+                                  categoryListProvider,
+                                );
+                                return categoriesState.when(
+                                  initial: () =>
+                                      const LinearProgressIndicator(),
+                                  loading: () =>
+                                      const LinearProgressIndicator(),
+                                  success: (categories) {
+                                    final categoryNames = categories
+                                        .map((c) => c.name)
+                                        .toList();
+                                    final validValue =
+                                        _selectedCategory != null &&
+                                            categoryNames.contains(
+                                              _selectedCategory,
+                                            )
+                                        ? _selectedCategory
+                                        : null;
+
+                                    return DropdownButtonFormField<String>(
+                                      value: validValue,
+                                      decoration: const InputDecoration(
+                                        labelText: 'Kategori',
+                                        prefixIcon: Icon(
+                                          Icons.category_outlined,
+                                        ),
+                                      ),
+                                      hint: const Text('Pilih Kategori'),
+                                      isExpanded: true,
+                                      items: [
+                                        const DropdownMenuItem(
+                                          value: null,
+                                          child: Text('-- Tanpa Kategori --'),
+                                        ),
+                                        ...categories.map(
+                                          (c) => DropdownMenuItem(
+                                            value: c.name,
+                                            child: Text(c.name),
+                                          ),
+                                        ),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(
+                                          () => _selectedCategory = value,
+                                        );
+                                      },
+                                    );
+                                  },
+                                  error: (msg, _) => TextFormField(
+                                    initialValue: _selectedCategory,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Kategori',
+                                      hintText: 'Ketik kategori',
+                                    ),
+                                    onChanged: (v) => _selectedCategory = v,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          // Satuan (Unit)
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _selectedUnit,
+                              decoration: const InputDecoration(
+                                labelText: 'Satuan',
+                                prefixIcon: Icon(Icons.straighten),
+                              ),
+                              isExpanded: true,
+                              items: _units
+                                  .map(
+                                    (unit) => DropdownMenuItem(
+                                      value: unit,
+                                      child: Text(unit),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                setState(() => _selectedUnit = value);
+                              },
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 16),
 
@@ -222,7 +372,7 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
                       ),
                       const SizedBox(height: 16),
 
-                      // Price & Cost Row
+                      // Price & Special Price Row
                       Row(
                         children: [
                           Expanded(
@@ -284,9 +434,9 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
                           Expanded(
                             child: TextFormField(
                               controller: _stockController,
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 labelText: 'Stok Awal',
-                                suffixText: 'pcs',
+                                suffixText: _selectedUnit ?? 'pcs',
                               ),
                               keyboardType: TextInputType.number,
                               inputFormatters: [
@@ -342,6 +492,9 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
     final product = Product(
       id: widget.product?.id ?? '',
       name: _nameController.text.trim(),
+      size: _sizeController.text.trim().isEmpty
+          ? null
+          : _sizeController.text.trim(),
       description: _descriptionController.text.trim().isEmpty
           ? null
           : _descriptionController.text.trim(),
@@ -354,6 +507,8 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
           : double.parse(_costController.text),
       stockQty: int.tryParse(_stockController.text) ?? 0,
       category: _selectedCategory,
+      unit: _selectedUnit,
+      productType: _selectedProductType,
       imageUrl: _imageUrlController.text.trim().isEmpty
           ? null
           : _imageUrlController.text.trim(),
