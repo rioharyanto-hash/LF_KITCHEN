@@ -20,14 +20,14 @@ class ProductFormDialog extends ConsumerStatefulWidget {
 class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
   final _formKey = GlobalKey<FormState>();
 
-  late TextEditingController _nameController;
-  late TextEditingController _sizeController;
-  late TextEditingController _descriptionController;
-  late TextEditingController _priceController;
-  late TextEditingController _specialPriceController;
-  late TextEditingController _costController;
-  late TextEditingController _stockController;
-  late TextEditingController _imageUrlController;
+  final _nameController = TextEditingController();
+  final _sizeController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _priceController = TextEditingController();
+  final _specialPriceController = TextEditingController();
+  final _costController = TextEditingController();
+  final _stockController = TextEditingController();
+  final _imageUrlController = TextEditingController();
 
   String? _selectedCategory;
   String? _selectedProductType;
@@ -71,29 +71,24 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.product?.name ?? '');
-    _sizeController = TextEditingController(text: widget.product?.size ?? '');
-    _descriptionController = TextEditingController(
-      text: widget.product?.description ?? '',
-    );
-    _priceController = TextEditingController(
-      text: widget.product?.unitPrice.toStringAsFixed(0) ?? '',
-    );
-    _specialPriceController = TextEditingController(
-      text: widget.product?.specialPrice.toStringAsFixed(0) ?? '0',
-    );
-    _costController = TextEditingController(
-      text: widget.product?.costPrice?.toStringAsFixed(0) ?? '',
-    );
-    _stockController = TextEditingController(
-      text: widget.product?.stockQty.toString() ?? '0',
-    );
-    _imageUrlController = TextEditingController(
-      text: widget.product?.imageUrl ?? '',
-    );
-    _selectedCategory = widget.product?.category;
-    _selectedProductType = widget.product?.productType;
-    _selectedUnit = widget.product?.unit ?? 'pcs';
+    // Set initial values from product if editing
+    if (widget.product != null) {
+      _nameController.text = widget.product!.name;
+      _sizeController.text = widget.product!.size ?? '';
+      _descriptionController.text = widget.product!.description ?? '';
+      _priceController.text = widget.product!.unitPrice.toStringAsFixed(0);
+      _specialPriceController.text = widget.product!.specialPrice
+          .toStringAsFixed(0);
+      _costController.text =
+          widget.product!.costPrice?.toStringAsFixed(0) ?? '';
+      _stockController.text = widget.product!.stockQty.toString();
+      _imageUrlController.text = widget.product!.imageUrl ?? '';
+      _selectedCategory = widget.product!.category;
+      _selectedProductType = widget.product!.productType;
+      _selectedUnit = widget.product!.unit ?? 'pcs';
+    } else {
+      _selectedUnit = 'pcs';
+    }
 
     // Load categories
     Future.microtask(() {
