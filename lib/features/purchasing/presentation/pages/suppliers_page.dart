@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../data/models/supplier.dart';
 import '../../data/providers/purchase_providers.dart';
 
@@ -384,15 +385,12 @@ class _SupplierFormDialogState extends ConsumerState<_SupplierFormDialog> {
 
     if (success && mounted) {
       Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isEditing
-                ? 'Supplier berhasil diupdate'
-                : 'Supplier berhasil ditambahkan',
-          ),
-          backgroundColor: AppColors.success,
-        ),
+      CustomToast.showSuccess(
+        context: context,
+        title: _isEditing
+            ? 'Supplier Berhasil Diupdate'
+            : 'Supplier Berhasil Ditambahkan',
+        subtitle: 'Data supplier telah disimpan.',
       );
     }
   }

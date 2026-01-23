@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
+import '../../../../core/utils/async_state.dart';
 import '../../../../core/utils/result.dart';
 import '../../../customers/data/models/customer.dart';
 import '../../../customers/data/providers/customer_providers.dart';
@@ -10,6 +13,7 @@ import '../../../products/data/models/product.dart';
 import '../../../products/data/providers/product_providers.dart';
 import '../../data/models/order.dart';
 import '../../data/providers/order_providers.dart';
+import '../widgets/mobile_product_paginated_grid.dart';
 
 /// Snack Box Page - Pesanan Snack Box dengan isi pilihan (2-4 macam kue)
 class SnackBoxPage extends ConsumerStatefulWidget {
@@ -96,12 +100,25 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
   @override
   Widget build(BuildContext context) {
     final productState = ref.watch(productListProvider);
+    final isMobile = MediaQuery.of(context).size.width < 768;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pesan Snack Box'),
         actions: [
-          if (_selectedCakes.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: OutlinedButton.icon(
+              onPressed: () => context.go('/orders?view=list'),
+              icon: const Icon(Icons.list_alt, size: 18),
+              label: Text(isMobile ? 'Daftar' : 'Lihat Daftar'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white70),
+              ),
+            ),
+          ),
+          if (_selectedCakes.isNotEmpty && !isMobile)
             TextButton.icon(
               onPressed: () => setState(() {
                 _selectedCakes.clear();
@@ -112,34 +129,461 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
             ),
         ],
       ),
-      body: Row(
+      body: isMobile
+          ? _buildMobileLayout(productState)
+          : _buildDesktopLayout(productState),
+    );
+  }
+
+  Widget _buildDesktopLayout(AsyncState<List<Product>> productState) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Column(
+            children: [
+              _buildInfoBar(),
+              const Divider(height: 1),
+              Expanded(
+                child: productState.when(
+                  initial: () => const Center(child: Text('Memuat produk...')),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  success: (products) => _buildProductGrid(products),
+                  error: (msg, code) => Center(child: Text('Error: $msg')),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const VerticalDivider(width: 1),
+        Expanded(flex: 1, child: _buildBoxPreview()),
+      ],
+    );
+  }
+
+  Widget _buildMobileLayout(AsyncState<List<Product>> productState) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left: Product Selection
-          Expanded(
-            flex: 2,
-            child: Column(
+          // Info bar
+          Container(
+            padding: const EdgeInsets.all(12),
+            color: Colors.grey.shade50,
+            child: Row(
               children: [
-                // Info Bar
-                _buildInfoBar(),
-                const Divider(height: 1),
-                // Product Grid
+                Icon(Icons.info_outline, color: AppColors.primary, size: 18),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: productState.when(
-                    initial: () =>
-                        const Center(child: Text('Memuat produk...')),
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
-                    success: (products) => _buildProductGrid(products),
-                    error: (msg, _) => Center(child: Text('Error: $msg')),
+                  child: Text(
+                    'Pilih 2-4 macam kue untuk snack box Anda.',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                   ),
                 ),
               ],
             ),
           ),
-          const VerticalDivider(width: 1),
-          // Right: Box Configuration & Preview
-          Expanded(flex: 1, child: _buildBoxPreview()),
+
+          // Water selection
+          _buildMobileWaterSection(productState),
+
+          // Cake selection
+          _buildMobileCakeSection(productState),
+
+          const Divider(),
+
+          // Box preview/order form
+          _buildMobileBoxPreview(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMobileWaterSection(AsyncState<List<Product>> productState) {
+    return productState.when(
+      initial: () => const SizedBox(),
+      loading: () => const SizedBox(),
+      success: (products) {
+        final waters = products
+            .where(
+              (p) =>
+                  p.category?.toLowerCase().contains('air') == true ||
+                  p.name.toLowerCase().contains('air mineral'),
+            )
+            .toList();
+
+        if (waters.isEmpty) return const SizedBox();
+
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tambah Air Mineral (opsional)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              // No water option
+              _buildWaterOptionTile(null, 'Tanpa Air', 0),
+              ...waters.map(
+                (w) => _buildWaterOptionTile(
+                  w,
+                  '${w.name} (${_currencyFormat.format(w.unitPrice)})',
+                  w.unitPrice,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+      error: (msg, code) => const SizedBox(),
+    );
+  }
+
+  Widget _buildWaterOptionTile(Product? water, String label, double price) {
+    final isSelected = _selectedWater == water;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: () => setState(() => _selectedWater = water),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.1)
+              : Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.primary
+                : (isDark ? Colors.grey.shade700 : Colors.grey.shade300),
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+              color: isSelected ? AppColors.primary : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileCakeSection(AsyncState<List<Product>> productState) {
+    return productState.when(
+      initial: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text('Memuat produk...'),
+        ),
+      ),
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      success: (products) {
+        // Filter ONLY products with category "Snack Box"
+        final cakes = products
+            .where((p) => p.category?.toLowerCase() == 'snack box')
+            .toList();
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Text(
+                      'Pilih Kue (${_selectedCakes.length}/4 macam)',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_selectedCakes.isNotEmpty)
+                      TextButton(
+                        onPressed: () => setState(() => _selectedCakes.clear()),
+                        child: const Text(
+                          'Reset',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              MobileProductPaginatedGrid(
+                products: cakes,
+                useProductTypeAsFilter: true,
+                isSelected: (p) => _selectedCakes.contains(p),
+                onProductTap: _toggleCake,
+              ),
+            ],
+          ),
+        );
+      },
+      error: (msg, code) => Center(child: Text('Error: $msg')),
+    );
+  }
+
+  Widget _buildMobileBoxPreview() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Detail Pesanan',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 16),
+
+          // Customer
+          const Text(
+            'NAMA PEMESAN *',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              color: Colors.grey,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildCustomerDropdown(),
+          const SizedBox(height: 16),
+
+          // Date
+          const Text(
+            'TANGGAL AMBIL',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              color: Colors.grey,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildDatePicker(),
+          const SizedBox(height: 16),
+
+          // Box count
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'JUMLAH BOX',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        color: Colors.grey,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _boxCountController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        suffixText: 'box',
+                      ),
+                      onChanged: (v) => setState(() {}),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'HARGA BOX',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                        color: Colors.grey,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _boxPriceController,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        prefixText: 'Rp ',
+                      ),
+                      onChanged: (v) => setState(() {}),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          if (_isBelowMinimum)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '* Minimal pemesanan 30 box',
+                style: TextStyle(fontSize: 11, color: Colors.orange.shade700),
+              ),
+            ),
+          const SizedBox(height: 24),
+
+          // Total
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('TOTAL'),
+                Text(
+                  _currencyFormat.format(_totalPrice),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Submit
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _canOrder ? _createOrder : null,
+              icon: _isProcessing
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.cake),
+              label: Text(_isProcessing ? 'Memproses...' : 'Pesan Snack Box'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+            ),
+          ),
+          if (!_canOrder)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _selectedCakes.length < 2
+                    ? 'Pilih minimal 2 macam kue'
+                    : _selectedCustomer == null
+                    ? 'Pilih pelanggan'
+                    : '',
+                style: TextStyle(fontSize: 12, color: AppColors.error),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCustomerDropdown() {
+    final customerState = ref.watch(customerListProvider);
+    return customerState.when(
+      initial: () => const SizedBox(),
+      loading: () => const LinearProgressIndicator(),
+      success: (customers) => DropdownButtonFormField<Customer>(
+        initialValue: _selectedCustomer,
+        decoration: InputDecoration(
+          hintText: 'Pilih Pelanggan',
+          prefixIcon: Icon(Icons.person, color: AppColors.primary),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ),
+        ),
+        menuMaxHeight: 250,
+        isExpanded: true,
+        items: customers
+            .map(
+              (c) => DropdownMenuItem(
+                value: c,
+                child: Text(
+                  '${c.name} (${c.phone})',
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            )
+            .toList(),
+        onChanged: (value) => setState(() => _selectedCustomer = value),
+      ),
+      error: (msg, code) => Text('Error: $msg'),
+    );
+  }
+
+  Widget _buildDatePicker() {
+    return InkWell(
+      onTap: () async {
+        final date = await showDatePicker(
+          context: context,
+          initialDate:
+              _deliveryDate ?? DateTime.now().add(const Duration(days: 1)),
+          firstDate: DateTime.now(),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+        );
+        if (date != null) setState(() => _deliveryDate = date);
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          hintText: 'Pilih tanggal',
+          prefixIcon: Icon(Icons.event, color: AppColors.primary),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          isDense: true,
+        ),
+        child: Text(
+          _deliveryDate != null
+              ? DateFormat('EEEE, dd MMM yyyy', 'id_ID').format(_deliveryDate!)
+              : 'Pilih tanggal pengambilan',
+          style: TextStyle(
+            color: _deliveryDate != null ? Colors.black : Colors.grey,
+          ),
+        ),
       ),
     );
   }
@@ -239,27 +683,69 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
 
         const SizedBox(height: 24),
 
-        // Cake Selection
+        // Cake Selection - Grouped by Jenis (productType)
         const Text(
           'Pilih Kue (2-4 macam):',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         const SizedBox(height: 12),
+        // Group cakes by productType (Jenis)
+        ..._buildGroupedByJenis(cakes),
+      ],
+    );
+  }
+
+  List<Widget> _buildGroupedByJenis(List<Product> cakes) {
+    // Group by productType (Jenis)
+    final Map<String, List<Product>> grouped = {};
+    for (final cake in cakes) {
+      final jenis = cake.productType ?? 'Lainnya';
+      grouped.putIfAbsent(jenis, () => []);
+      grouped[jenis]!.add(cake);
+    }
+
+    // Sort groups alphabetically and sort products within each group
+    final sortedKeys = grouped.keys.toList()..sort();
+    for (final key in sortedKeys) {
+      grouped[key]!.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+    }
+
+    final widgets = <Widget>[];
+    for (final jenis in sortedKeys) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 8),
+          child: Text(
+            jenis.toUpperCase(),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Colors.grey.shade600,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+      );
+      final isMobile = MediaQuery.of(context).size.width < 600;
+      widgets.add(
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isMobile ? 3 : 5,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
-            childAspectRatio: 0.85,
+            childAspectRatio: isMobile ? 0.65 : 0.85,
           ),
-          itemCount: cakes.length,
+          itemCount: grouped[jenis]!.length,
           itemBuilder: (context, index) =>
-              _buildProductCard(cakes[index], isCake: true),
+              _buildProductCard(grouped[jenis]![index], isCake: true),
         ),
-      ],
-    );
+      );
+    }
+    return widgets;
   }
 
   Widget _buildProductCard(Product product, {required bool isCake}) {
@@ -295,7 +781,8 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
                           ? Image.network(
                               product.imageUrl!,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _placeholder(),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _placeholder(),
                             )
                           : _placeholder(),
                     ),
@@ -323,27 +810,56 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
               Expanded(
                 flex: 2,
                 child: Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        product.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                      Flexible(
+                        child: Text(
+                          product.name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                      const Spacer(),
+                      if (product.size != null && product.size!.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            product.size!,
+                            style: TextStyle(
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 2),
                       Text(
                         _currencyFormat.format(_getCakePrice(product)),
                         style: TextStyle(
                           color: AppColors.primary,
                           fontWeight: FontWeight.bold,
-                          fontSize: 12,
+                          fontSize: 10,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -425,7 +941,7 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
                             ),
                           )
                         : DropdownButtonFormField<Customer>(
-                            value: _selectedCustomer,
+                            initialValue: _selectedCustomer,
                             hint: const Text('Pilih pelanggan'),
                             isExpanded: true,
                             decoration: InputDecoration(
@@ -476,7 +992,7 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
                             onChanged: (value) =>
                                 setState(() => _selectedCustomer = value),
                           ),
-                    error: (msg, _) => Text('Error: $msg'),
+                    error: (msg, code) => Text('Error: $msg'),
                   ),
               const SizedBox(height: 16),
 
@@ -592,7 +1108,9 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
                                   width: 40,
                                   height: 40,
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withOpacity(0.1),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.1,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child:
@@ -605,11 +1123,13 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
                                           child: Image.network(
                                             cake.imageUrl!,
                                             fit: BoxFit.cover,
-                                            errorBuilder: (_, __, ___) => Icon(
-                                              Icons.cake,
-                                              color: AppColors.primary,
-                                              size: 20,
-                                            ),
+                                            errorBuilder:
+                                                (context, error, stackTrace) =>
+                                                    Icon(
+                                                      Icons.cake,
+                                                      color: AppColors.primary,
+                                                      size: 20,
+                                                    ),
                                           ),
                                         )
                                       : Icon(
@@ -990,11 +1510,10 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
       result.when(
         success: (order) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Snack Box $_boxCount box berhasil dipesan!'),
-                backgroundColor: AppColors.success,
-              ),
+            CustomToast.showSuccess(
+              context: context,
+              title: 'Snack Box Berhasil Dipesan',
+              subtitle: '$_boxCount box telah ditambahkan ke pesanan.',
             );
             // Reset form
             setState(() {
@@ -1009,12 +1528,10 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
         },
         failure: (message, code) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Gagal membuat pesanan: $message'),
-                backgroundColor: AppColors.error,
-                duration: const Duration(seconds: 5),
-              ),
+            CustomToast.showError(
+              context: context,
+              title: 'Gagal Membuat Pesanan',
+              subtitle: message,
             );
           }
         },

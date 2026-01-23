@@ -231,46 +231,70 @@ class _CustomerCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: ListTile(
-        contentPadding: const EdgeInsets.all(16),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 12 : 16,
+          vertical: isMobile ? 8 : 16,
+        ),
         leading: CircleAvatar(
           backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+          radius: isMobile ? 18 : 20,
           child: Text(
             customer.name.substring(0, 1).toUpperCase(),
             style: TextStyle(
               color: AppColors.primary,
               fontWeight: FontWeight.bold,
+              fontSize: isMobile ? 14 : 16,
             ),
           ),
         ),
         title: Text(
           customer.name,
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: isMobile ? 14 : 16,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Row(
               children: [
-                const Icon(Icons.phone, size: 14, color: Colors.grey),
+                Icon(Icons.phone, size: isMobile ? 12 : 14, color: Colors.grey),
                 const SizedBox(width: 4),
-                Text(customer.phone),
+                Expanded(
+                  child: Text(
+                    customer.phone,
+                    style: TextStyle(fontSize: isMobile ? 12 : 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             if (customer.address != null) ...[
               const SizedBox(height: 2),
               Row(
                 children: [
-                  const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                  Icon(
+                    Icons.location_on,
+                    size: isMobile ? 12 : 14,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(
                       customer.address!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: isMobile ? 11 : 14),
                     ),
                   ),
                 ],
@@ -278,31 +302,51 @@ class _CustomerCard extends StatelessWidget {
             ],
           ],
         ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.message, color: Colors.green),
-              onPressed: onWhatsApp,
-              tooltip: 'WhatsApp',
-            ),
-            PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'edit') onEdit();
-                if (value == 'delete') onDelete();
-              },
-              itemBuilder: (context) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: Text(
-                    'Hapus',
-                    style: TextStyle(color: AppColors.error),
+        trailing: SizedBox(
+          width: isMobile ? 70 : 96,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              SizedBox(
+                width: isMobile ? 32 : 40,
+                height: isMobile ? 32 : 40,
+                child: IconButton(
+                  icon: Icon(
+                    Icons.message,
+                    color: Colors.green,
+                    size: isMobile ? 18 : 24,
                   ),
+                  onPressed: onWhatsApp,
+                  tooltip: 'WhatsApp',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
-              ],
-            ),
-          ],
+              ),
+              SizedBox(
+                width: isMobile ? 32 : 40,
+                height: isMobile ? 32 : 40,
+                child: PopupMenuButton<String>(
+                  icon: Icon(Icons.more_vert, size: isMobile ? 18 : 24),
+                  padding: EdgeInsets.zero,
+                  onSelected: (value) {
+                    if (value == 'edit') onEdit();
+                    if (value == 'delete') onDelete();
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Text(
+                        'Hapus',
+                        style: TextStyle(color: AppColors.error),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

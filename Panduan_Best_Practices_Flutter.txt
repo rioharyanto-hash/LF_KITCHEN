@@ -1,0 +1,298 @@
+================================================================================
+     PANDUAN BEST PRACTICES PENGEMBANGAN FLUTTER
+     Linting + Pencegahan Hardcoded/Mock Data
+                 Dibuat: 13 Januari 2026
+================================================================================
+
+
+================================================================================
+BAGIAN 1: TEMPLATE FLUTTER LINTING
+================================================================================
+
+LOKASI TEMPLATE
+---------------
+C:\Users\rioha\.gemini\templates\flutter_linting\
+
+File yang tersedia:
+  - analysis_options.yaml    → Aturan linting Flutter
+  - setup-linting.ps1        → Script setup otomatis
+  - scripts\pre-commit       → Git hook
+  - scripts\install-hooks.ps1 → Script install hook
+
+
+CARA CEPAT - SETUP LINTING
+--------------------------
+1. Buka PowerShell
+2. Jalankan:
+
+   C:\Users\rioha\.gemini\templates\flutter_linting\setup-linting.ps1 -ProjectPath "PATH_PROYEK"
+
+   Contoh:
+   C:\Users\rioha\.gemini\templates\flutter_linting\setup-linting.ps1 -ProjectPath "F:\PROJECT\APP_BARU"
+
+
+ATURAN LINTING YANG AKTIF
+-------------------------
+[ERROR - Commit akan gagal]
+  - unused_import           : Import yang tidak dipakai
+
+[WARNING]
+  - use_build_context_synchronously : Penggunaan context setelah await
+  - deprecated_member_use           : Penggunaan API deprecated
+
+[INFO - Best practices]
+  - curly_braces_in_flow_control_structures : Wajib pakai {} di if/for/while
+  - avoid_print                             : Jangan pakai print()
+
+
+================================================================================
+BAGIAN 2: MENCEGAH HARDCODED / MOCK DATA
+================================================================================
+
+A. STRUKTUR FOLDER YANG BENAR
+-----------------------------
+
+lib/
+├── core/
+│   ├── config/
+│   │   ├── app_config.dart       ← Konfigurasi environment
+│   │   ├── api_config.dart       ← Base URL, endpoints
+│   │   └── supabase_config.dart  ← Keys (JANGAN hardcode production keys!)
+│   │
+│   ├── constants/
+│   │   ├── app_constants.dart    ← Konstanta aplikasi
+│   │   └── storage_keys.dart     ← Keys untuk local storage
+│   │
+│   └── services/
+│       └── api_service.dart      ← HTTP client
+│
+├── features/
+│   └── [feature_name]/
+│       ├── data/
+│       │   ├── models/           ← Data models (pure Dart)
+│       │   ├── repositories/     ← Repository dengan API calls
+│       │   └── providers/        ← State management
+│       └── presentation/
+│           └── pages/            ← UI
+
+
+B. ENVIRONMENT CONFIGURATION
+----------------------------
+
+1. Buat file konfigurasi per environment:
+
+   // lib/core/config/app_config.dart
+   
+   enum Environment { development, staging, production }
+
+   class AppConfig {
+     static Environment environment = Environment.development;
+     
+     static String get baseUrl {
+       switch (environment) {
+         case Environment.development:
+           return 'http://localhost:3000/api';
+         case Environment.staging:
+           return 'https://staging-api.example.com/api';
+         case Environment.production:
+           return 'https://api.example.com/api';
+       }
+     }
+     
+     static bool get isDebug => environment == Environment.development;
+   }
+
+2. Set environment di main.dart:
+
+   void main() {
+     // Set berdasarkan build mode
+     if (kDebugMode) {
+       AppConfig.environment = Environment.development;
+     } else {
+       AppConfig.environment = Environment.production;
+     }
+     runApp(MyApp());
+   }
+
+
+C. GUNAKAN .ENV FILE (UNTUK KEYS SENSITIF)
+------------------------------------------
+
+1. Install package flutter_dotenv:
+
+   flutter pub add flutter_dotenv
+
+2. Buat file .env di root proyek:
+
+   # .env (JANGAN commit ke git!)
+   SUPABASE_URL=https://xxxxx.supabase.co
+   SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
+   API_BASE_URL=https://api.example.com
+
+3. Tambahkan .env ke .gitignore:
+
+   # .gitignore
+   .env
+   .env.local
+   .env.production
+
+4. Buat .env.example sebagai template:
+
+   # .env.example (commit ini ke git)
+   SUPABASE_URL=your_supabase_url_here
+   SUPABASE_ANON_KEY=your_anon_key_here
+   API_BASE_URL=your_api_url_here
+
+5. Load di main.dart:
+
+   import 'package:flutter_dotenv/flutter_dotenv.dart';
+   
+   Future<void> main() async {
+     await dotenv.load(fileName: ".env");
+     runApp(MyApp());
+   }
+
+6. Gunakan:
+
+   final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+   final supabaseKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+
+
+D. REPOSITORY PATTERN - TANPA MOCK DATA
+---------------------------------------
+
+SALAH (Hardcoded/Mock):
+```dart
+class ProductRepository {
+  List<Product> getProducts() {
+    // ❌ JANGAN seperti ini!
+    return [
+      Product(id: '1', name: 'Product A', price: 10000),
+      Product(id: '2', name: 'Product B', price: 20000),
+    ];
+  }
+}
+```
+
+BENAR (Dari API/Database):
+```dart
+class ProductRepository {
+  final SupabaseClient _client;
+  
+  ProductRepository(this._client);
+  
+  Future<Result<List<Product>>> getProducts() async {
+    try {
+      final response = await _client
+          .from('products')
+          .select()
+          .order('name');
+      
+      final products = (response as List)
+          .map((json) => Product.fromJson(json))
+          .toList();
+      
+      return Result.success(products);
+    } catch (e) {
+      return Result.failure(e.toString());
+    }
+  }
+}
+```
+
+
+E. CHECKLIST SEBELUM COMMIT/DEPLOY
+----------------------------------
+
+[ ] Tidak ada print() statements (gunakan debugPrint atau logging)
+[ ] Tidak ada hardcoded URL (gunakan AppConfig atau .env)
+[ ] Tidak ada hardcoded API keys (gunakan .env)
+[ ] Tidak ada mock/dummy data di production code
+[ ] Semua API calls menggunakan Repository pattern
+[ ] File .env tidak ter-commit ke git
+[ ] flutter analyze menunjukkan 0 issues
+
+
+F. GREP COMMANDS UNTUK CEK HARDCODED DATA
+-----------------------------------------
+
+Jalankan di PowerShell untuk mencari potensi masalah:
+
+# Cari hardcoded localhost
+Select-String -Path "lib\**\*.dart" -Pattern "localhost" -Recurse
+
+# Cari hardcoded IP address
+Select-String -Path "lib\**\*.dart" -Pattern "\d+\.\d+\.\d+\.\d+" -Recurse
+
+# Cari mock/dummy data
+Select-String -Path "lib\**\*.dart" -Pattern "mock|dummy|fake|test" -Recurse
+
+# Cari hardcoded Supabase keys
+Select-String -Path "lib\**\*.dart" -Pattern "eyJ" -Recurse
+
+# Cari print statements
+Select-String -Path "lib\**\*.dart" -Pattern "^\s*print\(" -Recurse
+
+
+G. TEMPLATE REPOSITORY DENGAN DEPENDENCY INJECTION
+--------------------------------------------------
+
+// lib/core/providers/supabase_provider.dart
+final supabaseClientProvider = Provider<SupabaseClient>((ref) {
+  return Supabase.instance.client;
+});
+
+// lib/features/products/data/repositories/product_repository.dart
+class ProductRepository {
+  final SupabaseClient _client;
+  
+  ProductRepository(this._client);
+  
+  // ... methods
+}
+
+// lib/features/products/data/providers/product_providers.dart
+final productRepositoryProvider = Provider<ProductRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return ProductRepository(client);
+});
+
+
+================================================================================
+BAGIAN 3: PERINTAH BERGUNA
+================================================================================
+
+flutter analyze              → Cek semua linting issues
+dart fix --apply             → Auto-fix issues
+dart format .                → Format semua file Dart
+
+# Install pre-commit hook
+.\scripts\install-hooks.ps1
+
+
+================================================================================
+BAGIAN 4: QUICK REFERENCE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                            YANG HARUS DILAKUKAN                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ Gunakan Repository pattern untuk data access                             │
+│ ✅ Simpan API keys di .env file                                             │
+│ ✅ Gunakan AppConfig untuk URL per environment                              │
+│ ✅ Jalankan flutter analyze sebelum commit                                  │
+│ ✅ Buat .env.example sebagai template                                       │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           YANG HARUS DIHINDARI                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ❌ Hardcode URL di dalam code                                               │
+│ ❌ Commit file .env ke git                                                  │
+│ ❌ Return mock/dummy data dari repository                                   │
+│ ❌ Gunakan print() untuk debugging                                          │
+│ ❌ Ignore flutter analyze warnings                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================

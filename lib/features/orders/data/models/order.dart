@@ -26,6 +26,10 @@ class Order {
   final String? notes;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String? receiptNumber; // Nomor kwitansi persisten
+  final double shippingCost; // Ongkos kirim
+  final String?
+  paymentMethod; // Cara pembayaran (Tunai, Transfer, QRIS) - Added in v1.1.2
   final List<OrderItem>? items;
 
   const Order({
@@ -44,6 +48,9 @@ class Order {
     this.notes,
     required this.createdAt,
     this.updatedAt,
+    this.receiptNumber,
+    this.shippingCost = 0,
+    this.paymentMethod,
     this.items,
   });
 
@@ -87,6 +94,9 @@ class Order {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : null,
+      receiptNumber: json['receipt_number'] as String?,
+      shippingCost: (json['shipping_cost'] as num?)?.toDouble() ?? 0,
+      paymentMethod: json['payment_method'] as String?,
       items: json['order_items'] != null
           ? (json['order_items'] as List)
                 .map((item) => OrderItem.fromJson(item))
@@ -106,6 +116,32 @@ class Order {
       'payment_status': paymentStatus.name.toUpperCase(),
       'delivery_date': deliveryDate?.toIso8601String(),
       'notes': notes,
+      'receipt_number': receiptNumber,
+      'shipping_cost': shippingCost,
+      'payment_method': paymentMethod,
+    };
+  }
+
+  /// Serializes the Order to JSON for API requests
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'customer_id': customerId,
+      'customer_name': customerName,
+      'customer_phone': customerPhone,
+      'order_date': orderDate.toIso8601String(),
+      'order_type': orderType.name.toUpperCase(),
+      'status': status.name.toUpperCase(),
+      'total_amount': totalAmount,
+      'dp_amount': dpAmount,
+      'payment_status': paymentStatus.name.toUpperCase(),
+      'delivery_date': deliveryDate?.toIso8601String(),
+      'notes': notes,
+      'receipt_number': receiptNumber,
+      'shipping_cost': shippingCost,
+      'payment_method': paymentMethod,
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt?.toIso8601String(),
     };
   }
 
@@ -124,6 +160,9 @@ class Order {
     String? notes,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? receiptNumber,
+    double? shippingCost,
+    String? paymentMethod,
     List<OrderItem>? items,
   }) {
     return Order(
@@ -141,12 +180,18 @@ class Order {
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      receiptNumber: receiptNumber ?? this.receiptNumber,
+      shippingCost: shippingCost ?? this.shippingCost,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
       items: items ?? this.items,
     );
   }
 
-  /// Sisa pembayaran
-  double get remainingPayment => totalAmount - dpAmount;
+  /// Grand total (produk + ongkir)
+  double get grandTotal => totalAmount + shippingCost;
+
+  /// Sisa pembayaran (dari grand total)
+  double get remainingPayment => grandTotal - dpAmount;
 
   /// Apakah sudah lunas
   bool get isPaid => paymentStatus == PaymentStatus.paid;
@@ -191,6 +236,8 @@ class OrderItem {
   final int quantity;
   final double unitPrice;
   final double subtotal;
+  final int
+  producedQty; // Jumlah yang sudah diproduksi (untuk tracking parsial)
   final DateTime? createdAt;
 
   const OrderItem({
@@ -201,8 +248,15 @@ class OrderItem {
     required this.quantity,
     required this.unitPrice,
     required this.subtotal,
+    this.producedQty = 0,
     this.createdAt,
   });
+
+  /// Apakah produksi sudah selesai untuk item ini
+  bool get isProducedComplete => producedQty >= quantity;
+
+  /// Sisa yang harus diproduksi
+  int get remainingToProduce => quantity - producedQty;
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
     return OrderItem(
@@ -215,6 +269,7 @@ class OrderItem {
       quantity: json['quantity'] as int,
       unitPrice: (json['unit_price'] as num).toDouble(),
       subtotal: (json['subtotal'] as num).toDouble(),
+      producedQty: json['produced_qty'] as int? ?? 0,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
@@ -239,6 +294,20 @@ class OrderItem {
     return json;
   }
 
+  /// Serializes the OrderItem to JSON for API requests
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'order_id': orderId,
+      'product_id': productId,
+      'product_name': productName,
+      'quantity': quantity,
+      'unit_price': unitPrice,
+      'subtotal': subtotal,
+      'created_at': createdAt?.toIso8601String(),
+    };
+  }
+
   /// Factory untuk membuat OrderItem dari Product
   factory OrderItem.fromProduct(Product product, int quantity, String orderId) {
     return OrderItem(
@@ -261,6 +330,7 @@ class OrderItem {
     int? quantity,
     double? unitPrice,
     double? subtotal,
+    int? producedQty,
     DateTime? createdAt,
   }) {
     return OrderItem(
@@ -271,6 +341,7 @@ class OrderItem {
       quantity: quantity ?? this.quantity,
       unitPrice: unitPrice ?? this.unitPrice,
       subtotal: subtotal ?? this.subtotal,
+      producedQty: producedQty ?? this.producedQty,
       createdAt: createdAt ?? this.createdAt,
     );
   }

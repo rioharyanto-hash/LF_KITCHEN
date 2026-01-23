@@ -1,0 +1,119 @@
+================================================================================
+           PANDUAN PENGGUNAAN TEMPLATE FLUTTER LINTING
+                     Dibuat: 13 Januari 2026
+================================================================================
+
+LOKASI TEMPLATE
+---------------
+C:\Users\rioha\.gemini\templates\flutter_linting\
+
+File yang tersedia:
+  - analysis_options.yaml    → Aturan linting Flutter
+  - setup-linting.ps1        → Script setup otomatis
+  - scripts\pre-commit       → Git hook
+  - scripts\install-hooks.ps1 → Script install hook
+
+
+================================================================================
+CARA CEPAT - JALANKAN SCRIPT SETUP
+================================================================================
+
+1. Buka PowerShell
+2. Jalankan perintah:
+
+   C:\Users\rioha\.gemini\templates\flutter_linting\setup-linting.ps1 -ProjectPath "PATH_PROYEK_ANDA"
+
+   Contoh:
+   C:\Users\rioha\.gemini\templates\flutter_linting\setup-linting.ps1 -ProjectPath "F:\PROJECT\APP_BARU"
+
+3. Script akan otomatis:
+   - Copy analysis_options.yaml
+   - Copy folder scripts
+   - Install pre-commit hook (jika diinginkan)
+
+
+================================================================================
+CARA MANUAL - COPY FILE SATU PER SATU
+================================================================================
+
+1. Copy analysis_options.yaml ke root proyek:
+   
+   Copy-Item "C:\Users\rioha\.gemini\templates\flutter_linting\analysis_options.yaml" "F:\PROJECT\APP_BARU\"
+
+2. Copy folder scripts:
+   
+   Copy-Item -Recurse "C:\Users\rioha\.gemini\templates\flutter_linting\scripts" "F:\PROJECT\APP_BARU\"
+
+3. Pindah ke folder proyek:
+   
+   cd "F:\PROJECT\APP_BARU"
+
+4. Install pre-commit hook:
+   
+   .\scripts\install-hooks.ps1
+
+5. Test dengan flutter analyze:
+   
+   flutter analyze
+
+
+================================================================================
+MEMBUAT SHORTCUT DI POWERSHELL (OPSIONAL)
+================================================================================
+
+1. Buka PowerShell profile:
+   
+   notepad $PROFILE
+
+2. Tambahkan fungsi ini di akhir file:
+
+   function Setup-FlutterLinting {
+       param([string]$Path = ".")
+       $fullPath = Resolve-Path $Path
+       & "C:\Users\rioha\.gemini\templates\flutter_linting\setup-linting.ps1" -ProjectPath $fullPath
+   }
+
+3. Simpan dan restart PowerShell
+
+4. Sekarang Anda bisa menjalankan:
+   
+   cd "F:\PROJECT\APP_BARU"
+   Setup-FlutterLinting
+
+
+================================================================================
+ATURAN LINTING YANG AKTIF
+================================================================================
+
+[ERROR - Commit akan gagal]
+  - unused_import           : Import yang tidak dipakai
+
+[WARNING - Ditampilkan tapi tidak blocking]
+  - use_build_context_synchronously : Penggunaan context setelah await
+  - deprecated_member_use           : Penggunaan API deprecated
+
+[INFO - Best practices]
+  - curly_braces_in_flow_control_structures : Wajib pakai {} di if/for/while
+  - avoid_print                             : Jangan pakai print()
+  - prefer_is_empty                         : Gunakan .isEmpty bukan .length == 0
+
+
+================================================================================
+PERINTAH BERGUNA
+================================================================================
+
+flutter analyze              → Cek semua issues
+dart fix --apply             → Auto-fix issues yang bisa diperbaiki otomatis
+dart format .                → Format semua file Dart
+
+
+================================================================================
+CATATAN
+================================================================================
+
+- Pre-commit hook akan otomatis berjalan setiap kali Anda git commit
+- Jika ada issues, commit akan ditolak sampai issues diperbaiki
+- Untuk bypass (tidak disarankan): git commit --no-verify -m "pesan"
+
+
+================================================================================

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../data/models/raw_material.dart';
 import '../../data/providers/purchase_providers.dart';
 
@@ -485,15 +486,12 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
 
     if (success && mounted) {
       Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isEditing
-                ? 'Bahan berhasil diupdate'
-                : 'Bahan berhasil ditambahkan',
-          ),
-          backgroundColor: AppColors.success,
-        ),
+      CustomToast.showSuccess(
+        context: context,
+        title: _isEditing
+            ? 'Bahan Berhasil Diupdate'
+            : 'Bahan Berhasil Ditambahkan',
+        subtitle: 'Data bahan baku telah disimpan.',
       );
     }
   }

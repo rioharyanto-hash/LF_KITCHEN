@@ -3,12 +3,15 @@ import { supabase } from '../config/supabase';
 export interface Product {
     id: string;
     name: string;
+    size?: string;          // Product size e.g., 22cm, 24cm
     description?: string;
     unit_price: number;
     special_price: number;
     cost_price?: number;
     stock_qty: number;
     category?: string;
+    unit?: string;          // Unit e.g., pcs, box, slice
+    product_type?: string;  // Type e.g., Cake, Pastry, Bread
     image_url?: string;
     created_at: string;
     updated_at?: string;

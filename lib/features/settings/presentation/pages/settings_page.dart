@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/supabase_config.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../../categories/data/models/category.dart';
 import '../../../categories/data/providers/category_providers.dart';
 import '../../data/providers/product_settings_provider.dart';
@@ -354,11 +355,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               if (formKey.currentState!.validate()) {
                 onSave(controller.text.trim());
                 Navigator.pop(dialogContext);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Berhasil disimpan'),
-                    backgroundColor: AppColors.success,
-                  ),
+                CustomToast.showSuccess(
+                  context: context,
+                  title: 'Berhasil Disimpan',
+                  subtitle: 'Pengaturan telah diperbarui.',
                 );
               }
             },
@@ -404,7 +404,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   success = await ref
                       .read(categoryListProvider.notifier)
                       .updateCategory(
-                        category!.copyWith(name: controller.text.trim()),
+                        category.copyWith(name: controller.text.trim()),
                       );
                 } else {
                   success = await ref
@@ -414,17 +414,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       );
                 }
 
+                if (!dialogContext.mounted) return;
                 Navigator.pop(dialogContext);
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        isEdit
-                            ? 'Kategori berhasil diupdate'
-                            : 'Kategori berhasil ditambahkan',
-                      ),
-                      backgroundColor: AppColors.success,
-                    ),
+                if (success && mounted) {
+                  CustomToast.showSuccess(
+                    context: context,
+                    title: isEdit
+                        ? 'Kategori Berhasil Diupdate'
+                        : 'Kategori Berhasil Ditambahkan',
+                    subtitle: 'Data kategori telah disimpan.',
                   );
                 }
               }
@@ -453,13 +451,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               final success = await ref
                   .read(categoryListProvider.notifier)
                   .deleteCategory(category.id);
+              if (!dialogContext.mounted) return;
               Navigator.pop(dialogContext);
-              if (success) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Kategori berhasil dihapus'),
-                    backgroundColor: AppColors.success,
-                  ),
+              if (success && mounted) {
+                CustomToast.showSuccess(
+                  context: context,
+                  title: 'Kategori Berhasil Dihapus',
+                  subtitle: 'Data kategori telah dihapus.',
                 );
               }
             },
@@ -488,11 +486,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             onPressed: () {
               ref.read(productSettingsProvider.notifier).resetToDefaults();
               Navigator.pop(dialogContext);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Pengaturan berhasil direset'),
-                  backgroundColor: AppColors.success,
-                ),
+              CustomToast.showSuccess(
+                context: context,
+                title: 'Pengaturan Berhasil Direset',
+                subtitle: 'Semua pengaturan telah dikembalikan ke default.',
               );
             },
             child: const Text('Reset'),

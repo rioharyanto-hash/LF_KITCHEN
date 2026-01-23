@@ -4,7 +4,7 @@ Rencana pengembangan fitur aplikasi LF Kitchen.
 
 ---
 
-## 🎯 Versi Saat Ini: v1.0.0
+## 🎯 Versi Saat Ini: v1.1.2
 
 Fitur utama yang sudah tersedia:
 - ✅ Manajemen Pesanan (PO)
@@ -14,14 +14,21 @@ Fitur utama yang sudah tersedia:
 - ✅ Pembelian Bahan Baku
 - ✅ Dashboard
 - ✅ Produksi Harian
+- ✅ Snack Box & Paketan
+- ✅ Kwitansi PDF (Desktop & Mobile/Web)
+- ✅ Mobile Navigation (Bottom Bar)
+- ✅ Dark Mode Toggle
+- ✅ Ongkos Kirim (Shipping Cost)
+- ✅ Info Pembayaran di Laporan
 
 ---
 
 ## 📋 Roadmap
 
-### v1.1.0 - Snack Box & Paket
-- [ ] Fitur Snack Box dengan isi pilihan
-- [ ] Paket produk bundling
+### v1.1.0 - Snack Box & Paket (Released)
+- [x] Fitur Snack Box dengan isi pilihan
+- [x] Paket produk bundling
+- [x] Ukuran produk di semua halaman
 - [ ] Template box untuk repeat order
 
 ### v1.2.0 - Laporan & Analitik
@@ -43,7 +50,7 @@ Fitur utama yang sudah tersedia:
 - [ ] Log aktivitas user
 
 ### v1.5.0 - Integrasi
-- [ ] Cetak struk/invoice
+- [x] Cetak struk/invoice
 - [ ] WhatsApp notification
 - [ ] Backup & restore data
 

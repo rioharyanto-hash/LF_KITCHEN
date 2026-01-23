@@ -15,7 +15,9 @@ class InvoiceRepository extends BaseRepository {
     String? customerId,
   }) async {
     return safeCall(() async {
-      var query = client.from(_tableName).select('*, customers(name)');
+      var query = client
+          .from(_tableName)
+          .select('*, customers(name), orders(shipping_cost)');
 
       if (status != null) {
         query = query.eq('status', status.name.toUpperCase());
@@ -36,7 +38,7 @@ class InvoiceRepository extends BaseRepository {
     return safeCall(() async {
       final response = await client
           .from(_tableName)
-          .select('*, customers(name)')
+          .select('*, customers(name), orders(shipping_cost)')
           .neq('status', 'PAID')
           .order('due_date', ascending: true);
 
@@ -49,7 +51,7 @@ class InvoiceRepository extends BaseRepository {
     return safeCall(() async {
       final response = await client
           .from(_tableName)
-          .select('*, customers(name)')
+          .select('*, customers(name), orders(shipping_cost)')
           .eq('customer_id', customerId)
           .order('created_at', ascending: false);
 

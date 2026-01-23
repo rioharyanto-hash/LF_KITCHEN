@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../../../core/utils/result.dart';
 import '../../../products/data/models/product.dart';
 import '../../../products/data/providers/product_providers.dart';
 import '../../data/models/order.dart';
 import '../../data/providers/order_providers.dart';
 import '../../data/providers/pos_providers.dart';
+import '../widgets/mobile_product_paginated_grid.dart';
 
 /// POS Page - Kasir / Penjualan Langsung
 class PosPage extends ConsumerStatefulWidget {
@@ -120,20 +122,51 @@ class _ProductGrid extends ConsumerWidget {
           );
         }
 
+        // Sort products alphabetically by name
+        final sortedProducts = List<Product>.from(
+          products,
+        )..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+        final isDesktop = MediaQuery.of(context).size.width >= 900;
+        final isMobile = MediaQuery.of(context).size.width < 600;
+
+        if (isMobile) {
+          final cartItems = ref.watch(posCartProvider).items;
+          return SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: MobileProductPaginatedGrid(
+                products: sortedProducts,
+                useProductTypeAsFilter: false, // Use Category
+                isSelected: (p) => cartItems.any((i) => i.product.id == p.id),
+                onProductTap: (product) {
+                  ref.read(posCartProvider.notifier).addProduct(product);
+                  CustomToast.showInfo(
+                    context: context,
+                    title: '${product.name} Ditambahkan',
+                    subtitle: 'Produk ditambahkan ke keranjang.',
+                    duration: const Duration(seconds: 1),
+                  );
+                },
+              ),
+            ),
+          );
+        }
+
         return GridView.builder(
           padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 4,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: isDesktop ? 5 : 4,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
             childAspectRatio: 0.85,
           ),
-          itemCount: products.length,
+          itemCount: sortedProducts.length,
           itemBuilder: (context, index) =>
-              _ProductCard(product: products[index]),
+              _ProductCard(product: sortedProducts[index]),
         );
       },
-      error: (message, _) => Center(
+      error: (message, code) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -171,13 +204,11 @@ class _ProductCard extends ConsumerWidget {
       child: InkWell(
         onTap: () {
           ref.read(posCartProvider.notifier).addProduct(product);
-          ScaffoldMessenger.of(context).clearSnackBars();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('${product.name} ditambahkan'),
-              duration: const Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-            ),
+          CustomToast.showInfo(
+            context: context,
+            title: '${product.name} Ditambahkan',
+            subtitle: 'Produk ditambahkan ke keranjang.',
+            duration: const Duration(seconds: 1),
           );
         },
         child: Column(
@@ -192,7 +223,8 @@ class _ProductCard extends ConsumerWidget {
                     ? Image.network(
                         product.imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildPlaceholder(),
                       )
                     : _buildPlaceholder(),
               ),
@@ -205,16 +237,44 @@ class _ProductCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            product.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (product.size != null &&
+                            product.size!.isNotEmpty) ...[
+                          const SizedBox(width: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 4,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              product.size!,
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 4),
                     Text(
                       _currencyFormat.format(product.unitPrice),
                       style: TextStyle(
@@ -314,7 +374,8 @@ class _CartPanel extends ConsumerWidget {
               : ListView.separated(
                   padding: const EdgeInsets.all(8),
                   itemCount: cartState.items.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  separatorBuilder: (context, index) =>
+                      const Divider(height: 1),
                   itemBuilder: (context, index) {
                     final item = cartState.items[index];
                     return _CartItemTile(item: item);
@@ -429,20 +490,18 @@ class _CartPanel extends ConsumerWidget {
               ref.read(posCartProvider.notifier).clearCart();
               if (dialogContext.mounted) Navigator.pop(dialogContext);
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Transaksi berhasil!'),
-                    backgroundColor: AppColors.success,
-                  ),
+                CustomToast.showSuccess(
+                  context: context,
+                  title: 'Transaksi Berhasil',
+                  subtitle: 'Pembayaran telah berhasil diproses.',
                 );
               }
             } else {
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Gagal menyimpan transaksi'),
-                    backgroundColor: AppColors.error,
-                  ),
+                CustomToast.showError(
+                  context: context,
+                  title: 'Gagal Menyimpan Transaksi',
+                  subtitle: 'Silakan coba lagi.',
                 );
               }
             }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../data/models/customer.dart';
 import '../../data/providers/customer_providers.dart';
 
@@ -187,25 +188,20 @@ class _CustomerFormDialogState extends ConsumerState<CustomerFormDialog> {
 
     if (success && mounted) {
       Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isEditing
-                ? 'Pelanggan berhasil diupdate'
-                : 'Pelanggan berhasil ditambahkan',
-          ),
-          backgroundColor: AppColors.success,
-        ),
+      CustomToast.showSuccess(
+        context: context,
+        title: _isEditing
+            ? 'Pelanggan Berhasil Diupdate'
+            : 'Pelanggan Berhasil Ditambahkan',
+        subtitle: 'Data pelanggan telah disimpan.',
       );
     } else if (mounted) {
       final state = ref.read(customerFormProvider);
       final errorMsg = state.isError ? state.errorMessage : 'Unknown error';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal menyimpan pelanggan: $errorMsg'),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 5),
-        ),
+      CustomToast.showError(
+        context: context,
+        title: 'Gagal Menyimpan Pelanggan',
+        subtitle: errorMsg ?? 'Terjadi kesalahan',
       );
     }
   }

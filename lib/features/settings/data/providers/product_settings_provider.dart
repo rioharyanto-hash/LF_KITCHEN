@@ -111,15 +111,7 @@ class ProductSettings {
     required this.units,
   });
 
-  static const List<String> defaultProductTypes = [
-    'Cake',
-    'Pastry',
-    'Bread',
-    'Cookies',
-    'Snack',
-    'Minuman',
-    'Lainnya',
-  ];
+  static const List<String> defaultProductTypes = ['ASIN', 'MANIS', 'LAINNYA'];
 
   static const List<String> defaultSizes = [
     '16 cm',

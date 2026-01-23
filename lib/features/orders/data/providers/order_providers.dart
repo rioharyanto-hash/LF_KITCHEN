@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/supabase_provider.dart';
 import '../../../../core/utils/async_state.dart';
 import '../../../../core/utils/result.dart';
+import '../../../production/data/repositories/production_repository.dart';
 import '../models/order.dart';
 import '../repositories/order_repository.dart';
 
@@ -14,12 +15,14 @@ final orderRepositoryProvider = Provider<OrderRepository>((ref) {
 /// State Notifier untuk Orders List
 class OrderListNotifier extends StateNotifier<AsyncState<List<Order>>> {
   final OrderRepository _repository;
+  final ProductionRepository? _productionRepo;
 
   // Store last filter params for refresh
   OrderType? _lastType;
   OrderStatus? _lastStatus;
 
-  OrderListNotifier(this._repository) : super(const AsyncState.initial());
+  OrderListNotifier(this._repository, [this._productionRepo])
+    : super(const AsyncState.initial());
 
   Future<void> loadOrders({OrderType? type, OrderStatus? status}) async {
     // Store params for refresh
@@ -56,6 +59,10 @@ class OrderListNotifier extends StateNotifier<AsyncState<List<Order>>> {
   Future<bool> updateStatus(String id, OrderStatus status) async {
     final result = await _repository.updateStatus(id, status);
     if (result.isSuccess) {
+      // Decrement stock when order is completed
+      if (status == OrderStatus.completed && _productionRepo != null) {
+        await _productionRepo.decrementStockForOrder(id);
+      }
       await refresh();
       return true;
     }
@@ -75,8 +82,18 @@ class OrderListNotifier extends StateNotifier<AsyncState<List<Order>>> {
     String id,
     PaymentStatus status, {
     double? dpAmount,
+    double? totalAmount,
+    String? notes,
+    String? paymentMethod,
   }) async {
-    final result = await _repository.updatePaymentStatus(id, status, dpAmount);
+    final result = await _repository.updatePaymentStatus(
+      id,
+      status,
+      dpAmount,
+      totalAmount: totalAmount,
+      notes: notes,
+      paymentMethod: paymentMethod,
+    );
     if (result.isSuccess) {
       await refresh();
       return true;
@@ -89,7 +106,9 @@ class OrderListNotifier extends StateNotifier<AsyncState<List<Order>>> {
 final orderListProvider =
     StateNotifierProvider<OrderListNotifier, AsyncState<List<Order>>>((ref) {
       final repository = ref.watch(orderRepositoryProvider);
-      return OrderListNotifier(repository);
+      final client = ref.watch(supabaseClientProvider);
+      final productionRepo = ProductionRepository(client);
+      return OrderListNotifier(repository, productionRepo);
     });
 
 /// State class for Order Form

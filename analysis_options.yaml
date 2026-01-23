@@ -1,28 +1,97 @@
-# This file configures the analyzer, which statically analyzes Dart code to
-# check for errors, warnings, and lints.
-#
-# The issues identified by the analyzer are surfaced in the UI of Dart-enabled
-# IDEs (https://dart.dev/tools#ides-and-editors). The analyzer can also be
-# invoked from the command line by running `flutter analyze`.
+# LF Kitchen - Analysis Options
+# This file configures the analyzer to enforce linting rules
+# and prevent common coding issues.
 
-# The following line activates a set of recommended lints for Flutter apps,
-# packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
-linter:
-  # The lint rules applied to this project can be customized in the
-  # section below to disable rules from the `package:flutter_lints/flutter.yaml`
-  # included above or to enable additional rules. A list of all available lints
-  # and their documentation is published at https://dart.dev/lints.
-  #
-  # Instead of disabling a lint rule for the entire project in the
-  # section below, it can also be suppressed for a single line of code
-  # or a specific dart file by using the `// ignore: name_of_lint` and
-  # `// ignore_for_file: name_of_lint` syntax on the line or in the file
-  # producing the lint.
-  rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+analyzer:
+  # Treat certain issues as errors to prevent them from being ignored
+  errors:
+    # Critical issues - treat as errors
+    unused_import: error
+    
+    # Async/BuildContext issues - important but not blocking
+    use_build_context_synchronously: warning
+    
+    # Deprecated APIs - warn about them
+    deprecated_member_use: warning
+    deprecated_member_use_from_same_package: warning
+    
+    # Type safety
+    invalid_assignment: error
+    missing_return: error
+    
+  # Exclude generated files from analysis
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "build/**"
+    - ".dart_tool/**"
+    - "test/**"
 
-# Additional information about this file can be found at
-# https://dart.dev/guides/language/analysis-options
+linter:
+  rules:
+    # === CRITICAL RULES (Prevent bugs) ===
+    # Enforce curly braces in control flow statements
+    curly_braces_in_flow_control_structures: true
+    
+    # Avoid print statements (use debugPrint or logging instead)
+    avoid_print: true
+    
+    # Avoid empty else blocks
+    avoid_empty_else: true
+    
+    # Await only futures
+    await_only_futures: true
+    
+    # === STYLE RULES (Optional - can disable if too strict) ===
+    # Prefer single quotes for strings
+    prefer_single_quotes: false
+    
+    # Prefer const constructors (disable jika terlalu banyak warning)
+    prefer_const_constructors: false
+    prefer_const_declarations: false
+    prefer_const_literals_to_create_immutables: false
+    
+    # Sort imports (disable jika terlalu banyak warning)
+    directives_ordering: false
+    
+    # Prefer final for local variables (disable untuk flexibility)
+    prefer_final_locals: false
+    
+    # === AVOID RULES ===
+    # Avoid returning null for Future
+    avoid_returning_null_for_future: true
+    
+    # Avoid unnecessary containers
+    avoid_unnecessary_containers: true
+    
+    # === PREFER RULES ===
+    # Use isEmpty/isNotEmpty instead of length checks
+    prefer_is_empty: true
+    prefer_is_not_empty: true
+    
+    # Use if-null operators
+    prefer_if_null_operators: true
+    prefer_null_aware_operators: true
+    
+    # Use interpolation to compose strings
+    prefer_interpolation_to_compose_strings: true
+    
+    # === TYPE SAFETY ===
+    # Always specify types for async functions
+    always_declare_return_types: true
+    
+    # Prefer typing uninitialized variables
+    prefer_typing_uninitialized_variables: true
+    
+    # === NULL SAFETY ===
+    # Unnecessary null checks
+    unnecessary_null_checks: true
+
+# Additional information:
+# - Run `flutter analyze` to check for issues
+# - Run `dart fix --apply` to auto-fix some issues
+# - IDE will show issues in real-time with these settings
+#
+# To enable stricter linting later, uncomment the disabled rules above.

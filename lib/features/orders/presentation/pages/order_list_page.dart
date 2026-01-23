@@ -4,12 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../../../core/utils/result.dart';
 import '../../data/models/order.dart';
 import '../../data/providers/order_providers.dart';
 import '../../../invoices/data/models/invoice.dart';
 import '../../../invoices/data/providers/invoice_providers.dart';
-import '../dialogs/order_form_dialog.dart';
 import '../dialogs/receipt_print_dialog.dart';
 
 /// Order List Page - Daftar Pesanan PO
@@ -141,19 +141,29 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
                 switch (_sortOption) {
                   case OrderSortOption.deliveryDateAsc:
                     sortedOrders.sort((a, b) {
-                      if (a.deliveryDate == null && b.deliveryDate == null)
+                      if (a.deliveryDate == null && b.deliveryDate == null) {
                         return 0;
-                      if (a.deliveryDate == null) return 1;
-                      if (b.deliveryDate == null) return -1;
+                      }
+                      if (a.deliveryDate == null) {
+                        return 1;
+                      }
+                      if (b.deliveryDate == null) {
+                        return -1;
+                      }
                       return a.deliveryDate!.compareTo(b.deliveryDate!);
                     });
                     break;
                   case OrderSortOption.deliveryDateDesc:
                     sortedOrders.sort((a, b) {
-                      if (a.deliveryDate == null && b.deliveryDate == null)
+                      if (a.deliveryDate == null && b.deliveryDate == null) {
                         return 0;
-                      if (a.deliveryDate == null) return 1;
-                      if (b.deliveryDate == null) return -1;
+                      }
+                      if (a.deliveryDate == null) {
+                        return 1;
+                      }
+                      if (b.deliveryDate == null) {
+                        return -1;
+                      }
                       return b.deliveryDate!.compareTo(a.deliveryDate!);
                     });
                     break;
@@ -187,7 +197,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         color: isHighlighted
-                            ? AppColors.primary.withOpacity(0.1)
+                            ? AppColors.primary.withValues(alpha: 0.1)
                             : null,
                         shape: isHighlighted
                             ? RoundedRectangleBorder(
@@ -234,31 +244,13 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
   }
 
   void _showAddOrderDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const OrderFormDialog(),
-    ).then((result) {
-      if (result == true) {
-        ref
-            .read(orderListProvider.notifier)
-            .loadOrders(type: OrderType.po, status: _selectedStatus);
-      }
-    });
+    // Navigate to order form (default view of /orders)
+    context.go('/orders');
   }
 
   void _showEditOrderDialog(BuildContext context, Order order) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => OrderFormDialog(order: order),
-    ).then((result) {
-      if (result == true) {
-        ref
-            .read(orderListProvider.notifier)
-            .loadOrders(type: OrderType.po, status: _selectedStatus);
-      }
-    });
+    // Navigate to order form with order data
+    context.go('/orders', extra: order);
   }
 
   Future<void> _updateStatus(Order order, OrderStatus status) async {
@@ -266,7 +258,7 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
     if (status == OrderStatus.completed &&
         order.paymentStatus != PaymentStatus.paid) {
       if (mounted) {
-        final remainingAmount = order.totalAmount - order.dpAmount;
+        final remainingAmount = order.grandTotal - order.dpAmount;
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
@@ -355,28 +347,19 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
           .updateStatus(order.id, OrderStatus.completed);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Pesanan selesai. Tagihan Rp ${remainingAmount.toStringAsFixed(0)} dibuat.',
-            ),
-            backgroundColor: AppColors.success,
-            duration: const Duration(seconds: 4),
-            action: SnackBarAction(
-              label: 'Lihat Tagihan',
-              textColor: Colors.white,
-              onPressed: () => context.go('/invoices'),
-            ),
-          ),
+        CustomToast.showSuccess(
+          context: context,
+          title: 'Pesanan Selesai',
+          subtitle:
+              'Tagihan Rp ${remainingAmount.toStringAsFixed(0)} telah dibuat.',
         );
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal membuat tagihan: ${result.errorMessage}'),
-            backgroundColor: AppColors.error,
-          ),
+        CustomToast.showError(
+          context: context,
+          title: 'Gagal Membuat Tagihan',
+          subtitle: result.errorMessage ?? 'Terjadi kesalahan',
         );
       }
     }
@@ -392,17 +375,22 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
       builder: (dialogContext) => _PaymentDialog(
         order: order,
         completeAfterPaid: completeAfterPaid,
-        onPay: (amount, method) async {
+        onPay: (amount, method, shipping) async {
           final newDp = order.dpAmount + amount;
-          final isPaid = newDp >= order.totalAmount;
+          final isPaid = newDp >= order.grandTotal;
           final newStatus = isPaid ? PaymentStatus.paid : PaymentStatus.partial;
 
           await ref
               .read(orderListProvider.notifier)
-              .updatePaymentStatus(order.id, newStatus, dpAmount: newDp);
+              .updatePaymentStatus(
+                order.id,
+                newStatus,
+                dpAmount: newDp,
+                paymentMethod: method,
+              );
 
-          // Auto-complete if paid and flag is set
-          if (completeAfterPaid && isPaid) {
+          // Complete order if flag is set (user clicked "Bayar & Selesaikan")
+          if (completeAfterPaid) {
             await ref
                 .read(orderListProvider.notifier)
                 .updateStatus(order.id, OrderStatus.completed);
@@ -418,7 +406,8 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
 class _PaymentDialog extends StatefulWidget {
   final Order order;
   final bool completeAfterPaid;
-  final Future<void> Function(double amount, String method) onPay;
+  final Future<void> Function(double amount, String method, double shipping)
+  onPay;
 
   const _PaymentDialog({
     required this.order,
@@ -431,92 +420,232 @@ class _PaymentDialog extends StatefulWidget {
 }
 
 class _PaymentDialogState extends State<_PaymentDialog> {
-  late TextEditingController _controller;
+  late TextEditingController _amountController;
   String _selectedMethod = 'Tunai';
   bool _isLoading = false;
+  bool _isFreeShipping = false;
 
   static const _paymentMethods = ['Tunai', 'Transfer', 'QRIS'];
+
+  // Parse existing shipping from notes
+  double get _existingShipping {
+    if (widget.order.notes == null) return 0;
+    final match = RegExp(r'SHIPPING:(\d+)').firstMatch(widget.order.notes!);
+    return match != null ? double.parse(match.group(1)!) : 0;
+  }
+
+  bool get _hasShipping => _existingShipping > 0;
 
   @override
   void initState() {
     super.initState();
-    final remaining = widget.order.totalAmount - widget.order.dpAmount;
-    _controller = TextEditingController(text: remaining.toStringAsFixed(0));
+    final remaining = widget.order.grandTotal - widget.order.dpAmount;
+    _amountController = TextEditingController(
+      text: remaining.toStringAsFixed(0),
+    );
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _amountController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final remaining = widget.order.totalAmount - widget.order.dpAmount;
+    final remaining = widget.order.grandTotal - widget.order.dpAmount;
 
     return AlertDialog(
       title: const Text('Pembayaran'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Total: Rp ${widget.order.totalAmount.toStringAsFixed(0)}'),
-          if (widget.order.dpAmount > 0)
-            Text('DP: Rp ${widget.order.dpAmount.toStringAsFixed(0)}'),
-          Text(
-            'Sisa: Rp ${remaining.toStringAsFixed(0)}',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppColors.error,
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Order Summary
+            Text(
+              'Total Pesanan: Rp ${widget.order.totalAmount.toStringAsFixed(0)}',
             ),
-          ),
-          const SizedBox(height: 16),
+            if (widget.order.dpAmount > 0)
+              Text('DP: Rp ${widget.order.dpAmount.toStringAsFixed(0)}'),
+            if (_hasShipping)
+              Text(
+                '(Termasuk ongkir: Rp ${_existingShipping.toStringAsFixed(0)})',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            const SizedBox(height: 12),
 
-          // Payment Method Selection
-          const Text('Metode Pembayaran:', style: TextStyle(fontSize: 13)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: _paymentMethods.map((method) {
-              final isSelected = _selectedMethod == method;
-              return ChoiceChip(
-                label: Text(method),
-                selected: isSelected,
-                onSelected: (selected) {
-                  if (selected) setState(() => _selectedMethod = method);
-                },
-                selectedColor: AppColors.primary.withValues(alpha: 0.2),
-                avatar: Icon(
-                  _getMethodIcon(method),
-                  size: 16,
-                  color: isSelected ? AppColors.primary : Colors.grey,
+            // Warning if no shipping
+            if (!_hasShipping && !_isFreeShipping)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
                 ),
-              );
-            }).toList(),
-          ),
-
-          const SizedBox(height: 16),
-          TextField(
-            controller: _controller,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Jumlah Bayar',
-              prefixText: 'Rp ',
-            ),
-          ),
-          if (widget.completeAfterPaid)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Text(
-                '* Pesanan akan otomatis selesai setelah lunas',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                  fontStyle: FontStyle.italic,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.warning_amber,
+                          color: Colors.orange.shade700,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Ongkos kirim belum diisi.\nIsi melalui Cetak Kwitansi.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange.shade800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () => setState(() => _isFreeShipping = true),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_box_outline_blank,
+                            size: 18,
+                            color: Colors.orange.shade700,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Free Ongkir (gratis)',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
+
+            // Free ongkir indicator
+            if (_isFreeShipping || (_hasShipping && _existingShipping == 0))
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.local_shipping,
+                      color: Colors.green.shade700,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Free Ongkir',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const Spacer(),
+                    if (_isFreeShipping)
+                      InkWell(
+                        onTap: () => setState(() => _isFreeShipping = false),
+                        child: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+            // Remaining Amount
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Sisa Bayar:'),
+                  Text(
+                    'Rp ${remaining.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: remaining > 0 ? AppColors.error : Colors.green,
+                    ),
+                  ),
+                ],
+              ),
             ),
-        ],
+            const SizedBox(height: 16),
+
+            // Payment Method Selection
+            const Text('Metode Pembayaran:', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: _paymentMethods.map((method) {
+                final isSelected = _selectedMethod == method;
+                return ChoiceChip(
+                  label: Text(method),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    if (selected) setState(() => _selectedMethod = method);
+                  },
+                  selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                  avatar: Icon(
+                    _getMethodIcon(method),
+                    size: 16,
+                    color: isSelected ? AppColors.primary : Colors.grey,
+                  ),
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 16),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Jumlah Bayar',
+                prefixText: 'Rp ',
+              ),
+            ),
+            if (widget.completeAfterPaid)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  '* Pesanan akan otomatis selesai setelah lunas',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
       actions: [
         TextButton(
@@ -549,11 +678,12 @@ class _PaymentDialogState extends State<_PaymentDialog> {
   }
 
   Future<void> _handlePayment() async {
-    final amount = double.tryParse(_controller.text) ?? 0;
+    final amount = double.tryParse(_amountController.text) ?? 0;
     if (amount <= 0) return;
 
     setState(() => _isLoading = true);
-    await widget.onPay(amount, _selectedMethod);
+    // Pass 0 for shipping as it's already included in totalAmount
+    await widget.onPay(amount, _selectedMethod, 0);
     setState(() => _isLoading = false);
   }
 }
@@ -718,15 +848,19 @@ class _OrderRowState extends State<_OrderRow> {
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Left: Name, Phone, Dates
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                // Top Row: Name + Total Price
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Left: Name & Status badges
+                    Expanded(
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             widget.order.customerName ?? 'Guest',
@@ -735,16 +869,14 @@ class _OrderRowState extends State<_OrderRow> {
                               fontSize: 15,
                             ),
                           ),
-                          const SizedBox(width: 8),
                           _StatusBadge(status: widget.order.status),
-                          // Snack Box indicator - detect from item names
+                          // Snack Box indicator
                           if (widget.order.items?.any(
                                 (item) =>
                                     item.productName?.toUpperCase() ==
                                     'SNACK BOX',
                               ) ??
-                              false) ...[
-                            const SizedBox(width: 6),
+                              false)
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 6,
@@ -777,81 +909,93 @@ class _OrderRowState extends State<_OrderRow> {
                                 ],
                               ),
                             ),
-                          ],
                         ],
-                      ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.phone,
-                            size: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            widget.order.customerPhone ?? '-',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            '|',
-                            style: TextStyle(color: Colors.grey.shade400),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            Icons.edit_calendar,
-                            size: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Pesan: ${_dateFormat.format(widget.order.orderDate)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            '|',
-                            style: TextStyle(color: Colors.grey.shade400),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(Icons.event, size: 13, color: AppColors.primary),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Ambil: ${widget.order.deliveryDate != null ? _dateFormat.format(widget.order.deliveryDate!) : '-'}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                // Right: Total and Payment
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      _currencyFormat.format(widget.order.totalAmount),
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: AppColors.primary,
                       ),
                     ),
+                    // Right: Total Price + Shipping
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _currencyFormat.format(widget.order.totalAmount),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        if (widget.order.shippingCost > 0)
+                          Text(
+                            'Ongkir: ${_currencyFormat.format(widget.order.shippingCost)}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // Second Row: Phone info
+                Row(
+                  children: [
+                    Icon(Icons.phone, size: 12, color: Colors.grey.shade600),
+                    const SizedBox(width: 4),
+                    Text(
+                      widget.order.customerPhone ?? '-',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                    const Spacer(),
+                    // Payment badge on right
                     _PaymentBadge(
                       status: widget.order.paymentStatus,
                       dpAmount: widget.order.dpAmount,
                       totalAmount: widget.order.totalAmount,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                // Third Row: Dates (stacked for mobile)
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 4,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.edit_calendar,
+                          size: 12,
+                          color: Colors.grey.shade500,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Pesan: ${_dateFormat.format(widget.order.orderDate)}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.event, size: 12, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Ambil: ${widget.order.deliveryDate != null ? _dateFormat.format(widget.order.deliveryDate!) : '-'}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -986,31 +1130,7 @@ class _OrderRowState extends State<_OrderRow> {
   List<Widget> _buildActionButtons() {
     final buttons = <Widget>[];
 
-    // Payment button for unpaid/partial orders
-    if (widget.order.paymentStatus != PaymentStatus.paid) {
-      buttons.add(
-        OutlinedButton.icon(
-          onPressed: widget.onPayment,
-          icon: Icon(
-            Icons.payment,
-            size: 16,
-            color: widget.order.paymentStatus == PaymentStatus.unpaid
-                ? AppColors.error
-                : Colors.orange,
-          ),
-          label: Text(
-            widget.order.paymentStatus == PaymentStatus.unpaid
-                ? 'Bayar'
-                : 'Lunasi',
-            style: TextStyle(
-              color: widget.order.paymentStatus == PaymentStatus.unpaid
-                  ? AppColors.error
-                  : Colors.orange,
-            ),
-          ),
-        ),
-      );
-    }
+    // Payment button removed - payments only via Invoice menu
 
     switch (widget.order.status) {
       case OrderStatus.draft:
@@ -1037,6 +1157,16 @@ class _OrderRowState extends State<_OrderRow> {
         );
         break;
       case OrderStatus.confirmed:
+        // Uang Muka (DP) button
+        if (widget.order.paymentStatus != PaymentStatus.paid) {
+          buttons.add(
+            OutlinedButton.icon(
+              onPressed: widget.onPayment,
+              icon: const Icon(Icons.payments_outlined, size: 16),
+              label: const Text('Uang Muka'),
+            ),
+          );
+        }
         buttons.add(
           FilledButton.icon(
             onPressed: () => widget.onStatusChange(OrderStatus.processing),
@@ -1044,8 +1174,25 @@ class _OrderRowState extends State<_OrderRow> {
             label: const Text('Proses'),
           ),
         );
+        buttons.add(
+          TextButton.icon(
+            onPressed: () => widget.onStatusChange(OrderStatus.cancelled),
+            icon: Icon(Icons.close, size: 16, color: AppColors.error),
+            label: Text('Batal', style: TextStyle(color: AppColors.error)),
+          ),
+        );
         break;
       case OrderStatus.processing:
+        // Uang Muka (DP) button
+        if (widget.order.paymentStatus != PaymentStatus.paid) {
+          buttons.add(
+            OutlinedButton.icon(
+              onPressed: widget.onPayment,
+              icon: const Icon(Icons.payments_outlined, size: 16),
+              label: const Text('Uang Muka'),
+            ),
+          );
+        }
         buttons.add(
           FilledButton.icon(
             onPressed: () => widget.onStatusChange(OrderStatus.ready),
@@ -1053,13 +1200,37 @@ class _OrderRowState extends State<_OrderRow> {
             label: const Text('Siap Ambil'),
           ),
         );
+        buttons.add(
+          TextButton.icon(
+            onPressed: () => widget.onStatusChange(OrderStatus.cancelled),
+            icon: Icon(Icons.close, size: 16, color: AppColors.error),
+            label: Text('Batal', style: TextStyle(color: AppColors.error)),
+          ),
+        );
         break;
       case OrderStatus.ready:
+        // Uang Muka (DP) button
+        if (widget.order.paymentStatus != PaymentStatus.paid) {
+          buttons.add(
+            OutlinedButton.icon(
+              onPressed: widget.onPayment,
+              icon: const Icon(Icons.payments_outlined, size: 16),
+              label: const Text('Uang Muka'),
+            ),
+          );
+        }
         buttons.add(
           FilledButton.icon(
             onPressed: () => widget.onStatusChange(OrderStatus.completed),
             icon: const Icon(Icons.done_all, size: 16),
             label: const Text('Selesai'),
+          ),
+        );
+        buttons.add(
+          TextButton.icon(
+            onPressed: () => widget.onStatusChange(OrderStatus.cancelled),
+            icon: Icon(Icons.close, size: 16, color: AppColors.error),
+            label: Text('Batal', style: TextStyle(color: AppColors.error)),
           ),
         );
         break;
@@ -1072,14 +1243,9 @@ class _OrderRowState extends State<_OrderRow> {
 
 class _OrderCard extends StatefulWidget {
   final Order order;
-  final VoidCallback? onEdit;
   final void Function(OrderStatus) onStatusChange;
 
-  const _OrderCard({
-    required this.order,
-    this.onEdit,
-    required this.onStatusChange,
-  });
+  const _OrderCard({required this.order, required this.onStatusChange});
 
   @override
   State<_OrderCard> createState() => _OrderCardState();
@@ -1373,18 +1539,6 @@ class _OrderCardState extends State<_OrderCard> {
               ],
             ),
           ],
-          if (widget.order.status == OrderStatus.draft &&
-              widget.onEdit != null) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: widget.onEdit,
-                icon: const Icon(Icons.edit, size: 18),
-                label: const Text('Edit Pesanan'),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -1540,95 +1694,6 @@ class _PaymentBadge extends StatelessWidget {
     return Text(
       label,
       style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w500),
-    );
-  }
-}
-
-class _OrderDetailDialog extends StatelessWidget {
-  final Order order;
-  final VoidCallback? onEdit;
-
-  const _OrderDetailDialog({required this.order, this.onEdit});
-
-  static final _dateFormat = DateFormat('dd MMMM yyyy', 'id_ID');
-  static final _currencyFormat = NumberFormat.currency(
-    locale: 'id_ID',
-    symbol: 'Rp ',
-    decimalDigits: 0,
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          const Icon(Icons.receipt_long),
-          const SizedBox(width: 8),
-          const Text('Detail Pesanan'),
-        ],
-      ),
-      content: SizedBox(
-        width: 400,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _DetailRow('Pelanggan', order.customerName ?? 'Guest'),
-            _DetailRow('Telepon', order.customerPhone ?? '-'),
-            _DetailRow(
-              'Tanggal Ambil',
-              order.deliveryDate != null
-                  ? _dateFormat.format(order.deliveryDate!)
-                  : '-',
-            ),
-            const Divider(),
-            _DetailRow('Total', _currencyFormat.format(order.totalAmount)),
-            _DetailRow('DP', _currencyFormat.format(order.dpAmount)),
-            _DetailRow(
-              'Sisa',
-              _currencyFormat.format(order.totalAmount - order.dpAmount),
-            ),
-            if (order.notes != null && order.notes!.isNotEmpty) ...[
-              const Divider(),
-              Text('Catatan:', style: TextStyle(fontWeight: FontWeight.bold)),
-              Text(order.notes!),
-            ],
-          ],
-        ),
-      ),
-      actions: [
-        if (onEdit != null)
-          TextButton.icon(
-            onPressed: onEdit,
-            icon: const Icon(Icons.edit),
-            label: const Text('Edit'),
-          ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Tutup'),
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  const _DetailRow(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label, style: TextStyle(color: Colors.grey.shade600)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
-        ],
-      ),
     );
   }
 }

@@ -309,15 +309,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     required String title,
     Widget? trailing,
   }) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Row(
       children: [
-        Icon(icon, color: AppColors.primary, size: 20),
+        Icon(icon, color: AppColors.primary, size: isMobile ? 18 : 20),
         const SizedBox(width: 8),
-        Text(
-          title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: isMobile ? 14 : 16,
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
-        const Spacer(),
         if (trailing != null) trailing,
       ],
     );
@@ -368,9 +375,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: isDesktop ? 4 : 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: isDesktop ? 1.6 : 1.4,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: isDesktop ? 1.6 : 1.3,
       ),
       itemCount: cards.length,
       itemBuilder: (context, index) => _SummaryCard(data: cards[index]),
@@ -378,26 +385,24 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+    final width = MediaQuery.of(context).size.width;
+    final bool isMobile = width < 600;
+    final bool isTablet = width >= 600 && width < 900;
+    final int crossAxisCount = isMobile ? 2 : isTablet ? 3 : 4;
+    final double aspect = isMobile ? 3.5 : isTablet ? 2.8 : 2.0;
+
+    return GridView.count(
+      crossAxisCount: crossAxisCount,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: aspect,
       children: [
-        _QuickActionButton(
-          icon: Icons.add_shopping_cart,
-          label: 'Pesanan Baru',
-          isPrimary: true,
-          onTap: () => context.go('/orders'),
-        ),
-        _QuickActionButton(
-          icon: Icons.receipt,
-          label: 'Kasir / POS',
-          onTap: () => context.go('/pos'),
-        ),
-        _QuickActionButton(
-          icon: Icons.shopping_bag,
-          label: 'Beli Bahan',
-          onTap: () => context.go('/purchasing'),
-        ),
+        SizedBox(width: double.infinity, child: _QuickActionButton(icon: Icons.people, label: 'Pelanggan', onTap: () => context.go('/customers'))),
+        SizedBox(width: double.infinity, child: _QuickActionButton(icon: Icons.inventory_2, label: 'Master Produk', onTap: () => context.go('/products'))),
+        SizedBox(width: double.infinity, child: _QuickActionButton(icon: Icons.receipt_long, label: 'Tagihan', onTap: () => context.go('/invoices'))),
+        SizedBox(width: double.infinity, child: _QuickActionButton(icon: Icons.factory, label: 'Produksi', onTap: () => context.go('/production'))),
       ],
     );
   }
@@ -449,7 +454,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: orders.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (context, index) =>
             Divider(height: 1, color: Colors.grey.shade100),
         itemBuilder: (context, index) => _ReminderItem(order: orders[index]),
       ),
@@ -480,6 +485,8 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -487,9 +494,10 @@ class _SummaryCard extends StatelessWidget {
         side: BorderSide(color: Colors.grey.shade200),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(isMobile ? 10 : 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -499,39 +507,51 @@ class _SummaryCard extends StatelessWidget {
                   child: Text(
                     data.title,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: isMobile ? 11 : 13,
                       fontWeight: FontWeight.w500,
                       color: Colors.grey.shade600,
                     ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: EdgeInsets.all(isMobile ? 6 : 8),
                   decoration: BoxDecoration(
                     color: data.color.shade100,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(data.icon, color: data.color.shade600, size: 18),
+                  child: Icon(
+                    data.icon,
+                    color: data.color.shade600,
+                    size: isMobile ? 14 : 18,
+                  ),
                 ),
               ],
             ),
-            const Spacer(),
-            Text(
-              data.value,
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: data.color.shade600,
+            SizedBox(height: isMobile ? 4 : 8),
+            Flexible(
+              child: Text(
+                data.value,
+                style: TextStyle(
+                  fontSize: isMobile ? 18 : 24,
+                  fontWeight: FontWeight.bold,
+                  color: data.color.shade600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: isMobile ? 2 : 4),
             Text(
               data.subtitle,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: isMobile ? 9 : 11,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey.shade500,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -544,41 +564,22 @@ class _QuickActionButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool isPrimary;
 
   const _QuickActionButton({
     required this.icon,
     required this.label,
     required this.onTap,
-    this.isPrimary = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (isPrimary) {
-      return ElevatedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 2,
-          shadowColor: AppColors.primary.withValues(alpha: 0.4),
-        ),
-      );
-    }
-
     return OutlinedButton.icon(
       onPressed: onTap,
       icon: Icon(icon, size: 18),
       label: Text(label),
       style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        minimumSize: Size.fromHeight(48),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         side: BorderSide(color: Colors.grey.shade300),
       ),
@@ -618,7 +619,7 @@ class _ReminderItem extends StatelessWidget {
 
     return InkWell(
       onTap: () => context.go(
-        '/orders?highlight=${order.id}&status=${order.status.name}',
+        '/orders?view=list&highlight=${order.id}&status=${order.status.name}',
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),

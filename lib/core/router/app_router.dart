@@ -7,15 +7,17 @@ import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/products/presentation/pages/product_list_page.dart';
 import '../../features/customers/presentation/pages/customer_list_page.dart';
 import '../../features/orders/presentation/pages/order_list_page.dart';
+import '../../features/orders/presentation/pages/order_form_page.dart';
 import '../../features/orders/presentation/pages/pos_page.dart';
 import '../../features/orders/presentation/pages/snack_box_page.dart';
+import '../../features/orders/data/models/order.dart';
 import '../../features/purchasing/presentation/pages/purchase_list_page.dart';
 import '../../features/purchasing/presentation/pages/raw_materials_page.dart';
-import '../../features/purchasing/presentation/pages/suppliers_page.dart';
 import '../../features/production/presentation/pages/production_dashboard_page.dart';
 import '../../features/invoices/presentation/pages/invoice_list_page.dart';
 import '../../features/reports/presentation/pages/reports_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/packages/presentation/pages/paketan_page.dart';
 
 /// Router Configuration menggunakan GoRouter
 final routerProvider = Provider<GoRouter>((ref) {
@@ -40,14 +42,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/orders',
             name: 'orders',
             pageBuilder: (context, state) {
+              // Check if we want to show list or form
+              final view = state.uri.queryParameters['view'];
               final highlightOrderId = state.uri.queryParameters['highlight'];
               final initialStatus = state.uri.queryParameters['status'];
-              return NoTransitionPage(
-                child: OrderListPage(
-                  highlightOrderId: highlightOrderId,
-                  initialStatus: initialStatus,
-                ),
-              );
+
+              if (view == 'list') {
+                return NoTransitionPage(
+                  child: OrderListPage(
+                    highlightOrderId: highlightOrderId,
+                    initialStatus: initialStatus,
+                  ),
+                );
+              }
+              // Default: show order form page
+              final order = state.extra as Order?;
+              return NoTransitionPage(child: OrderFormPage(order: order));
             },
           ),
           GoRoute(
@@ -61,6 +71,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'snack-box',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: SnackBoxPage()),
+          ),
+          // Paketan Route
+          GoRoute(
+            path: '/paketan',
+            name: 'paketan',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: PaketanPage()),
           ),
           // Produksi Route
           GoRoute(
@@ -82,6 +99,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'purchasing',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: PurchaseListPage()),
+          ),
+          // Bahan Baku Route
+          GoRoute(
+            path: '/raw-materials',
+            name: 'raw-materials',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: RawMaterialsPage()),
           ),
           // Master Data - Products
           GoRoute(

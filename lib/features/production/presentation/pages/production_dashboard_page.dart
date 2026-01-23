@@ -7,22 +7,36 @@ import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/utils/result.dart';
 import '../../data/providers/production_providers.dart';
 
-/// Sort options for production
-enum ProductionSortBy { pickupDate, customerName, productName, productSize }
+/// Group/Filter options for production
+enum ProductionGroupBy { byPickupDate, byCustomer, byProduct, bySize }
 
-extension ProductionSortByExtension on ProductionSortBy {
+extension ProductionGroupByExtension on ProductionGroupBy {
   String get label {
     switch (this) {
-      case ProductionSortBy.pickupDate:
-        return 'Tanggal Ambil';
-      case ProductionSortBy.customerName:
-        return 'Nama Pemesan';
-      case ProductionSortBy.productName:
-        return 'Nama Kue';
-      case ProductionSortBy.productSize:
-        return 'Ukuran';
+      case ProductionGroupBy.byPickupDate:
+        return 'Per Tanggal Ambil';
+      case ProductionGroupBy.byCustomer:
+        return 'Per Nama Pemesan';
+      case ProductionGroupBy.byProduct:
+        return 'Per Jenis Produk';
+      case ProductionGroupBy.bySize:
+        return 'Per Ukuran';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case ProductionGroupBy.byPickupDate:
+        return Icons.calendar_today;
+      case ProductionGroupBy.byCustomer:
+        return Icons.person;
+      case ProductionGroupBy.byProduct:
+        return Icons.cake;
+      case ProductionGroupBy.bySize:
+        return Icons.straighten;
     }
   }
 }
@@ -38,8 +52,7 @@ class ProductionDashboardPage extends ConsumerStatefulWidget {
 
 class _ProductionDashboardPageState
     extends ConsumerState<ProductionDashboardPage> {
-  ProductionSortBy _sortBy = ProductionSortBy.pickupDate;
-  bool _sortAscending = true;
+  ProductionGroupBy _groupBy = ProductionGroupBy.byPickupDate;
 
   @override
   void initState() {
@@ -90,16 +103,18 @@ class _ProductionDashboardPageState
   }
 
   Widget _buildHeader(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: 56,
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
       decoration: BoxDecoration(color: AppColors.primary),
       child: Row(
         children: [
-          const Text(
+          Text(
             'Produksi',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: isMobile ? 16 : 20,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
@@ -107,72 +122,84 @@ class _ProductionDashboardPageState
 
           const Spacer(),
 
-          // Sort Dropdown
+          // Group By Dropdown
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
               borderRadius: BorderRadius.circular(8),
             ),
             child: DropdownButtonHideUnderline(
-              child: DropdownButton<ProductionSortBy>(
-                value: _sortBy,
-                icon: const Icon(
+              child: DropdownButton<ProductionGroupBy>(
+                value: _groupBy,
+                isDense: true,
+                icon: Icon(
                   Icons.keyboard_arrow_down,
-                  size: 18,
+                  size: isMobile ? 16 : 18,
                   color: Colors.white,
                 ),
                 dropdownColor: AppColors.primary,
-                items: ProductionSortBy.values.map((sort) {
+                items: ProductionGroupBy.values.map((group) {
                   return DropdownMenuItem(
-                    value: sort,
-                    child: Text(
-                      sort.label,
-                      style: const TextStyle(fontSize: 13, color: Colors.white),
+                    value: group,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(group.icon, size: 14, color: Colors.white70),
+                        const SizedBox(width: 6),
+                        Text(
+                          group.label,
+                          style: TextStyle(
+                            fontSize: isMobile ? 11 : 13,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }).toList(),
                 onChanged: (value) {
                   if (value != null) {
-                    setState(() => _sortBy = value);
+                    setState(() => _groupBy = value);
                   }
                 },
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: isMobile ? 4 : 8),
 
-          // Sort Direction
-          IconButton(
-            icon: Icon(
-              _sortAscending ? Icons.arrow_upward : Icons.arrow_downward,
-              size: 20,
-              color: Colors.white,
+          // Print Button - hide on mobile
+          if (!isMobile) ...[
+            OutlinedButton.icon(
+              onPressed: _printProduction,
+              icon: const Icon(Icons.print, size: 18, color: Colors.white),
+              label: const Text('Print', style: TextStyle(color: Colors.white)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+              ),
             ),
-            tooltip: _sortAscending ? 'Ascending' : 'Descending',
-            onPressed: () {
-              setState(() => _sortAscending = !_sortAscending);
-            },
-          ),
-
-          // Print Button
-          OutlinedButton.icon(
-            onPressed: _printProduction,
-            icon: const Icon(Icons.print, size: 18, color: Colors.white),
-            label: const Text('Print', style: TextStyle(color: Colors.white)),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
-            ),
-          ),
-          const SizedBox(width: 8),
+            const SizedBox(width: 8),
+          ],
 
           // Refresh
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () =>
-                ref.read(productionProvider.notifier).loadProduction(),
+          SizedBox(
+            width: isMobile ? 32 : 40,
+            height: isMobile ? 32 : 40,
+            child: IconButton(
+              icon: Icon(
+                Icons.refresh,
+                color: Colors.white,
+                size: isMobile ? 18 : 24,
+              ),
+              padding: EdgeInsets.zero,
+              onPressed: () =>
+                  ref.read(productionProvider.notifier).loadProduction(),
+            ),
           ),
         ],
       ),
@@ -243,33 +270,50 @@ class _ProductionDashboardPageState
           onLayout: (PdfPageFormat format) async => doc.save(),
         );
       },
-      error: (_, __) {},
+      error: (message, code) {},
     );
   }
 
   Widget _buildContent(BuildContext context, ProductionState data) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
     if (data.productionByDate.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
-            SizedBox(height: 16),
-            Text(
-              'Tidak ada item yang perlu diproduksi',
-              style: TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Pesanan untuk 3 hari ke depan akan muncul di sini',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: isMobile ? 48 : 64,
+                color: Colors.green,
+              ),
+              SizedBox(height: isMobile ? 12 : 16),
+              Text(
+                'Tidak ada item yang perlu diproduksi',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: isMobile ? 14 : 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: isMobile ? 4 : 8),
+              Text(
+                'Pesanan untuk 3 hari ke depan akan muncul di sini',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: isMobile ? 12 : 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       );
     }
 
-    // Flatten all items for sorting
+    // Flatten all items
     final allItems = <_FlattenedProductionItem>[];
     for (final dateGroup in data.productionByDate) {
       for (final item in dateGroup.items) {
@@ -277,44 +321,23 @@ class _ProductionDashboardPageState
           allItems.add(
             _FlattenedProductionItem(
               pickupDate: dateGroup.date,
-              productName: item.productName,
-              productSize: item.productSize,
+              orderDate: order.orderDate,
+              productName: order.productName,
+              productSize: order.productSize,
+              productId: order.productId,
               customerName: order.customerName,
               quantity: order.quantity,
+              producedQty: order.producedQty,
               orderId: order.orderId,
+              orderItemId: order.orderItemId,
             ),
           );
         }
       }
     }
 
-    // Sort items
-    allItems.sort((a, b) {
-      int result;
-      switch (_sortBy) {
-        case ProductionSortBy.pickupDate:
-          if (a.pickupDate == null && b.pickupDate == null) {
-            result = 0;
-          } else if (a.pickupDate == null) {
-            result = 1;
-          } else if (b.pickupDate == null) {
-            result = -1;
-          } else {
-            result = a.pickupDate!.compareTo(b.pickupDate!);
-          }
-          break;
-        case ProductionSortBy.customerName:
-          result = a.customerName.compareTo(b.customerName);
-          break;
-        case ProductionSortBy.productName:
-          result = a.productName.compareTo(b.productName);
-          break;
-        case ProductionSortBy.productSize:
-          result = (a.productSize ?? '').compareTo(b.productSize ?? '');
-          break;
-      }
-      return _sortAscending ? result : -result;
-    });
+    // Group items based on _groupBy
+    final groups = _groupItems(allItems);
 
     return Column(
       children: [
@@ -324,16 +347,23 @@ class _ProductionDashboardPageState
           pendingItems: data.pendingItems,
           completedItems: data.completedItems,
         ),
-        // Production List
+        // Grouped Production List
         Expanded(
           child: RefreshIndicator(
             onRefresh: () =>
                 ref.read(productionProvider.notifier).loadProduction(),
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
-              itemCount: allItems.length,
+              itemCount: groups.length,
               itemBuilder: (context, index) {
-                return _ProductionItemRow(item: allItems[index]);
+                final group = groups[index];
+                return _ProductionGroup(
+                  groupBy: _groupBy,
+                  groupKey: group.key,
+                  items: group.items,
+                  onRecorded: () =>
+                      ref.read(productionProvider.notifier).loadProduction(),
+                );
               },
             ),
           ),
@@ -341,30 +371,140 @@ class _ProductionDashboardPageState
       ],
     );
   }
+
+  List<_GroupedData> _groupItems(List<_FlattenedProductionItem> items) {
+    final Map<String, List<_FlattenedProductionItem>> grouped = {};
+
+    for (final item in items) {
+      String key;
+      switch (_groupBy) {
+        case ProductionGroupBy.byPickupDate:
+          key = item.pickupDate != null
+              ? DateFormat('dd MMM yyyy').format(item.pickupDate!)
+              : 'Tanpa Tanggal';
+          break;
+        case ProductionGroupBy.byCustomer:
+          key = item.customerName;
+          break;
+        case ProductionGroupBy.byProduct:
+          key = item.productName;
+          break;
+        case ProductionGroupBy.bySize:
+          key = item.productSize ?? 'Tanpa Ukuran';
+          break;
+      }
+
+      grouped.putIfAbsent(key, () => []);
+      grouped[key]!.add(item);
+    }
+
+    // Sort keys
+    final sortedKeys = grouped.keys.toList()..sort();
+
+    return sortedKeys
+        .map((key) => _GroupedData(key: key, items: grouped[key]!))
+        .toList();
+  }
+}
+
+/// Helper class for grouped data
+class _GroupedData {
+  final String key;
+  final List<_FlattenedProductionItem> items;
+
+  _GroupedData({required this.key, required this.items});
+
+  int get totalQty => items.fold(0, (sum, item) => sum + item.quantity);
+  int get completedQty => items.fold(0, (sum, item) => sum + item.producedQty);
 }
 
 class _FlattenedProductionItem {
   final DateTime? pickupDate;
+  final DateTime? orderDate;
   final String productName;
   final String? productSize;
+  final String? productId;
   final String customerName;
   final int quantity;
+  final int producedQty;
   final String orderId;
+  final String orderItemId;
 
   _FlattenedProductionItem({
     required this.pickupDate,
+    this.orderDate,
     required this.productName,
     this.productSize,
+    this.productId,
     required this.customerName,
     required this.quantity,
+    this.producedQty = 0,
     required this.orderId,
+    required this.orderItemId,
   });
+
+  bool get isComplete => producedQty >= quantity;
+  int get remaining => quantity - producedQty;
 }
 
-class _ProductionItemRow extends StatelessWidget {
-  final _FlattenedProductionItem item;
+/// Widget for displaying a production group with expandable items
+class _ProductionGroup extends StatefulWidget {
+  final ProductionGroupBy groupBy;
+  final String groupKey;
+  final List<_FlattenedProductionItem> items;
+  final VoidCallback? onRecorded;
 
-  const _ProductionItemRow({required this.item});
+  const _ProductionGroup({
+    required this.groupBy,
+    required this.groupKey,
+    required this.items,
+    this.onRecorded,
+  });
+
+  @override
+  State<_ProductionGroup> createState() => _ProductionGroupState();
+}
+
+class _ProductionGroupState extends State<_ProductionGroup> {
+  bool _isExpanded = false;
+
+  int get _totalQty => widget.items.fold(0, (sum, item) => sum + item.quantity);
+  int get _completedQty =>
+      widget.items.fold(0, (sum, item) => sum + item.producedQty);
+  bool get _isAllComplete => _completedQty >= _totalQty;
+
+  // Get unique pickup dates from items
+  List<String> get _pickupDates {
+    final dates = widget.items
+        .where((item) => item.pickupDate != null)
+        .map((item) => DateFormat('dd/MM').format(item.pickupDate!))
+        .toSet()
+        .toList();
+    dates.sort();
+    return dates;
+  }
+
+  // Get display info based on group type
+  String get _subInfo {
+    switch (widget.groupBy) {
+      case ProductionGroupBy.byPickupDate:
+        // Show unique customers
+        final customers = widget.items.map((e) => e.customerName).toSet();
+        return '${customers.length} pemesan';
+      case ProductionGroupBy.byCustomer:
+        // Show unique products
+        final products = widget.items.map((e) => e.productName).toSet();
+        return '${products.length} produk • ${_pickupDates.join(', ')}';
+      case ProductionGroupBy.byProduct:
+        // Show unique customers
+        final customers = widget.items.map((e) => e.customerName).toSet();
+        return '${customers.length} pemesan • ${_pickupDates.join(', ')}';
+      case ProductionGroupBy.bySize:
+        // Show unique products
+        final products = widget.items.map((e) => e.productName).toSet();
+        return '${products.length} produk • ${_pickupDates.join(', ')}';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -373,112 +513,269 @@ class _ProductionItemRow extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(
+          color: _isAllComplete ? Colors.green.shade200 : Colors.grey.shade200,
+        ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // Date Box
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
+        children: [
+          // Group Header - Clickable
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 children: [
-                  Text(
-                    item.pickupDate != null
-                        ? DateFormat('dd').format(item.pickupDate!)
-                        : '-',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.primary,
+                  // Icon based on group type
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: _isAllComplete
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      widget.groupBy.icon,
+                      color: _isAllComplete ? Colors.green : AppColors.primary,
                     ),
                   ),
-                  Text(
-                    item.pickupDate != null
-                        ? DateFormat('MMM').format(item.pickupDate!)
-                        : '',
-                    style: TextStyle(fontSize: 10, color: AppColors.primary),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // Product Info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.productName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 14,
-                        color: Colors.grey.shade500,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        item.customerName,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                      if (item.productSize != null) ...[
-                        const SizedBox(width: 12),
-                        Icon(
-                          Icons.straighten,
-                          size: 14,
-                          color: Colors.grey.shade500,
-                        ),
-                        const SizedBox(width: 4),
+                  const SizedBox(width: 12),
+                  // Group Info
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          item.productSize!,
+                          widget.groupKey,
                           style: TextStyle(
-                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: _isAllComplete ? Colors.green : null,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _subInfo,
+                          style: TextStyle(
+                            fontSize: 12,
                             color: Colors.grey.shade600,
                           ),
                         ),
                       ],
-                    ],
+                    ),
+                  ),
+                  // Qty Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _isAllComplete
+                          ? Colors.green.withValues(alpha: 0.1)
+                          : Colors.orange.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$_completedQty / $_totalQty',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: _isAllComplete ? Colors.green : Colors.orange,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Expand Icon
+                  Icon(
+                    _isExpanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.grey,
                   ),
                 ],
               ),
             ),
-
-            // Quantity
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${item.quantity} pcs',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primary,
-                ),
+          ),
+          // Expanded Items
+          if (_isExpanded) ...[
+            const Divider(height: 1),
+            ...widget.items.map(
+              (item) => _ProductionSubItem(
+                item: item,
+                groupBy: widget.groupBy,
+                onRecorded: widget.onRecorded,
               ),
             ),
           ],
-        ),
+        ],
       ),
+    );
+  }
+}
+
+/// Sub-item row inside a group
+class _ProductionSubItem extends ConsumerWidget {
+  final _FlattenedProductionItem item;
+  final ProductionGroupBy groupBy;
+  final VoidCallback? onRecorded;
+
+  const _ProductionSubItem({
+    required this.item,
+    required this.groupBy,
+    this.onRecorded,
+  });
+
+  // Display label depends on group type
+  String get _label {
+    switch (groupBy) {
+      case ProductionGroupBy.byPickupDate:
+        return '${item.productName} • ${item.customerName}';
+      case ProductionGroupBy.byCustomer:
+        return item.productName;
+      case ProductionGroupBy.byProduct:
+        return item.customerName;
+      case ProductionGroupBy.bySize:
+        return '${item.productName} • ${item.customerName}';
+    }
+  }
+
+  String get _dateLabel {
+    if (item.pickupDate == null) return '-';
+    return DateFormat('dd/MM').format(item.pickupDate!);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isComplete = item.isComplete;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isComplete ? Colors.green.withValues(alpha: 0.03) : null,
+        border: Border(bottom: BorderSide(color: Colors.grey.shade100)),
+      ),
+      child: Row(
+        children: [
+          // Date Badge
+          Container(
+            width: 40,
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              _dateLabel,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Label
+          Expanded(
+            child: Text(
+              _label,
+              style: TextStyle(
+                fontSize: 13,
+                color: isComplete ? Colors.green : null,
+                decoration: isComplete ? TextDecoration.lineThrough : null,
+              ),
+            ),
+          ),
+          // Qty
+          Text(
+            '${item.producedQty}/${item.quantity}',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: isComplete ? Colors.green : Colors.orange,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Production buttons
+          if (!isComplete) ...[
+            _QuickAddButton(
+              label: '+1',
+              onPressed: () => _recordProduction(context, ref, 1),
+            ),
+            if (item.remaining > 1) ...[
+              const SizedBox(width: 4),
+              _QuickAddButton(
+                label: '+${item.remaining}',
+                onPressed: () =>
+                    _recordProduction(context, ref, item.remaining),
+              ),
+            ],
+          ] else
+            const Icon(Icons.check_circle, color: Colors.green, size: 20),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _recordProduction(
+    BuildContext context,
+    WidgetRef ref,
+    int qty,
+  ) async {
+    final repo = ref.read(prodLogRepoProvider);
+    final result = await repo.recordProduction(
+      orderId: item.orderId,
+      orderItemId: item.orderItemId,
+      productId: item.productId,
+      productName: item.productName,
+      productSize: item.productSize,
+      customerName: item.customerName,
+      deliveryDate: item.pickupDate,
+      quantity: qty,
+    );
+
+    result.when(
+      success: (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Tercatat: $qty ${item.productName}'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 1),
+            ),
+          );
+        }
+        onRecorded?.call();
+      },
+      failure: (msg, _) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Gagal: $msg'), backgroundColor: Colors.red),
+          );
+        }
+      },
+    );
+  }
+}
+
+class _QuickAddButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onPressed;
+
+  const _QuickAddButton({
+    required this.label,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.grey.shade200,
+        foregroundColor: Colors.grey.shade700,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
     );
   }
 }

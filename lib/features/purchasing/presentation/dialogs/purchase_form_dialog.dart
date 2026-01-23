@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../../../core/utils/async_state.dart';
 import '../../data/models/supplier.dart';
 import '../../data/models/raw_material.dart';
@@ -154,7 +155,7 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
                                 setState(() => _selectedSupplier = value);
                               },
                             ),
-                        error: (msg, _) => Text('Error: $msg'),
+                        error: (msg, code) => Text('Error: $msg'),
                       ),
                       const SizedBox(height: 24),
 
@@ -383,8 +384,10 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
     if (materialState.isSuccess && materialState.data != null) {
       final materials = materialState.data!;
       if (materials.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tambahkan bahan baku terlebih dahulu')),
+        CustomToast.showWarning(
+          context: context,
+          title: 'Belum Ada Bahan Baku',
+          subtitle: 'Tambahkan bahan baku terlebih dahulu.',
         );
         return;
       }
@@ -450,18 +453,16 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
 
     if (success && mounted) {
       Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Pembelian berhasil dicatat'),
-          backgroundColor: AppColors.success,
-        ),
+      CustomToast.showSuccess(
+        context: context,
+        title: 'Pembelian Berhasil Dicatat',
+        subtitle: 'Data pembelian telah disimpan.',
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Gagal menyimpan pembelian'),
-          backgroundColor: AppColors.error,
-        ),
+      CustomToast.showError(
+        context: context,
+        title: 'Gagal Menyimpan Pembelian',
+        subtitle: 'Silakan coba lagi.',
       );
     }
   }

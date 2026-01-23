@@ -11,6 +11,7 @@ class Invoice {
   final double totalAmount;
   final double paidAmount;
   final double remainingAmount;
+  final double shippingCost;
   final DateTime? dueDate;
   final InvoiceStatus status;
   final String? notes;
@@ -25,6 +26,7 @@ class Invoice {
     required this.totalAmount,
     required this.paidAmount,
     required this.remainingAmount,
+    this.shippingCost = 0,
     this.dueDate,
     required this.status,
     this.notes,
@@ -33,6 +35,12 @@ class Invoice {
   });
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
+    // Get shippingCost from joined orders table if available
+    double shippingCost = 0;
+    if (json['orders'] != null) {
+      shippingCost = (json['orders']['shipping_cost'] as num?)?.toDouble() ?? 0;
+    }
+
     return Invoice(
       id: json['id'],
       orderId: json['order_id'],
@@ -43,6 +51,7 @@ class Invoice {
       totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0,
       paidAmount: (json['paid_amount'] as num?)?.toDouble() ?? 0,
       remainingAmount: (json['remaining_amount'] as num?)?.toDouble() ?? 0,
+      shippingCost: shippingCost,
       dueDate: json['due_date'] != null
           ? DateTime.tryParse(json['due_date'])
           : null,

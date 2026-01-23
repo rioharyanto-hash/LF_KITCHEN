@@ -22,7 +22,7 @@ class InvoiceListNotifier extends StateNotifier<AsyncState<List<Invoice>>> {
     final result = await _repository.getAll(status: status);
     result.when(
       success: (data) => state = AsyncState.success(data),
-      failure: (msg, _) => state = AsyncState.error(msg),
+      failure: (msg, code) => state = AsyncState.error(msg),
     );
   }
 
@@ -31,7 +31,7 @@ class InvoiceListNotifier extends StateNotifier<AsyncState<List<Invoice>>> {
     final result = await _repository.getUnpaid();
     result.when(
       success: (data) => state = AsyncState.success(data),
-      failure: (msg, _) => state = AsyncState.error(msg),
+      failure: (msg, code) => state = AsyncState.error(msg),
     );
   }
 

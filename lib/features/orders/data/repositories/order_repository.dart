@@ -1,4 +1,5 @@
 import '../../../../core/data/base_repository.dart';
+import '../../../../core/services/invoice_number_service.dart';
 import '../../../../core/utils/result.dart';
 import '../models/order.dart';
 
@@ -113,25 +114,128 @@ class OrderRepository extends BaseRepository {
     });
   }
 
-  /// Update order
-  Future<Result<Order>> update(Order order) async {
+  /// Update order with items
+  /// If items is null, only updates order details
+  Future<Result<Order>> update(Order order, [List<OrderItem>? items]) async {
     return safeCall(() async {
+      // 1. Update order details
       await client
           .from(_tableName)
           .update(order.toInsertJson())
           .eq('id', order.id);
 
+      // 2. Update items if provided
+      if (items != null) {
+        // Fetch existing items to match by product_id or product_name
+        final existingItems = await client
+            .from(_itemsTable)
+            .select()
+            .eq('order_id', order.id);
+
+        final existingMap = <String, Map<String, dynamic>>{};
+        for (final item in existingItems as List) {
+          final key = (item['product_id'] as String?) ?? item['product_name'] as String;
+          existingMap[key] = item as Map<String, dynamic>;
+        }
+
+        // Track which existing items are updated or deleted
+        final processedKeys = <String>{};
+
+        for (final item in items) {
+          final key = item.productId ?? item.productName ?? '';
+          
+          if (existingMap.containsKey(key)) {
+            // Update existing item (preserves id and produced_qty)
+            final existing = existingMap[key]!;
+            final updateJson = item.toInsertJson();
+            await client
+                .from(_itemsTable)
+                .update(updateJson)
+                .eq('id', existing['id']);
+            processedKeys.add(key);
+          } else {
+            // Insert new item
+            final insertJson = item.toInsertJson();
+            insertJson['order_id'] = order.id;
+            await client.from(_itemsTable).insert(insertJson);
+          }
+        }
+
+        // Delete items that are no longer in the list
+        final keysToDelete = existingMap.keys.where((k) => !processedKeys.contains(k));
+        for (final key in keysToDelete) {
+          await client
+              .from(_itemsTable)
+              .delete()
+              .eq('id', existingMap[key]!['id']);
+        }
+      }
+
       return await getById(order.id).then((result) => result.dataOrNull!);
     });
   }
 
-  /// Update status order
+  /// Update status order (generates receipt_number on first confirm)
   Future<Result<void>> updateStatus(String id, OrderStatus status) async {
     return safeCall(() async {
-      await client
-          .from(_tableName)
-          .update({'status': status.name.toUpperCase()})
-          .eq('id', id);
+      final updates = <String, dynamic>{'status': status.name.toUpperCase()};
+
+      // Generate receipt_number saat order dikonfirmasi (jika belum ada)
+      if (status == OrderStatus.confirmed) {
+        // Fetch current order to check if receipt_number exists
+        final currentOrder = await client
+            .from(_tableName)
+            .select(
+              'receipt_number, order_type, notes, order_items(*, products(name))',
+            )
+            .eq('id', id)
+            .single();
+
+        if (currentOrder['receipt_number'] == null) {
+          // Determine invoice type based on order
+          String invoiceType = InvoiceNumberService.po;
+
+          final orderType = currentOrder['order_type']
+              ?.toString()
+              .toUpperCase();
+          if (orderType == 'DIRECT') {
+            invoiceType = InvoiceNumberService.kasir;
+          } else {
+            final notes = currentOrder['notes']?.toString() ?? '';
+            // Check for Paketan (notes contain === ===)
+            if (notes.contains('=== ') && notes.contains(' ===')) {
+              invoiceType = InvoiceNumberService.paketan;
+            }
+            // Check for Snack Box
+            else if (notes.toUpperCase().contains('SNACK BOX') ||
+                notes.toUpperCase().contains('SNACKBOX')) {
+              invoiceType = InvoiceNumberService.snackBox;
+            } else {
+              // Check items for Snack Box
+              final items = currentOrder['order_items'] as List? ?? [];
+              final hasSnackBox = items.any((item) {
+                final productName =
+                    (item['products']?['name'] ?? item['product_name'] ?? '')
+                        .toString()
+                        .toUpperCase();
+                return productName.contains('SNACK BOX') ||
+                    productName.contains('SNACKBOX');
+              });
+              if (hasSnackBox) {
+                invoiceType = InvoiceNumberService.snackBox;
+              }
+            }
+          }
+
+          // Generate new receipt number
+          final receiptNumber = await InvoiceNumberService.getNextNumber(
+            invoiceType,
+          );
+          updates['receipt_number'] = receiptNumber;
+        }
+      }
+
+      await client.from(_tableName).update(updates).eq('id', id);
     });
   }
 
@@ -139,8 +243,12 @@ class OrderRepository extends BaseRepository {
   Future<Result<void>> updatePaymentStatus(
     String id,
     PaymentStatus status,
-    double? dpAmount,
-  ) async {
+    double? dpAmount, {
+    double? totalAmount,
+    String? notes,
+    // New field
+    String? paymentMethod,
+  }) async {
     return safeCall(() async {
       final updates = <String, dynamic>{
         'payment_status': status.name.toUpperCase(),
@@ -148,7 +256,26 @@ class OrderRepository extends BaseRepository {
       if (dpAmount != null) {
         updates['dp_amount'] = dpAmount;
       }
+      if (totalAmount != null) {
+        updates['total_amount'] = totalAmount;
+      }
+      if (notes != null) {
+        updates['notes'] = notes;
+      }
+      if (paymentMethod != null) {
+        updates['payment_method'] = paymentMethod;
+      }
       await client.from(_tableName).update(updates).eq('id', id);
+    });
+  }
+
+  /// Update shipping cost
+  Future<Result<void>> updateShipping(String id, double shippingCost) async {
+    return safeCall(() async {
+      await client
+          .from(_tableName)
+          .update({'shipping_cost': shippingCost})
+          .eq('id', id);
     });
   }
 

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../../../core/utils/async_state.dart';
 import '../../../../core/utils/result.dart';
 import '../../../customers/data/models/customer.dart';
@@ -532,13 +533,16 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                   if (mounted) {
                     setState(() => _selectedCustomer = created);
                   }
-                  Navigator.pop(dialogContext);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Pelanggan berhasil ditambahkan'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  if (dialogContext.mounted) {
+                    Navigator.pop(dialogContext);
+                  }
+                  if (context.mounted) {
+                    CustomToast.showSuccess(
+                      context: context,
+                      title: 'Pelanggan Berhasil Ditambahkan',
+                      subtitle: 'Pelanggan baru telah disimpan.',
+                    );
+                  }
                 }
               }
             },
@@ -565,8 +569,10 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
         );
       },
       error: (message, code) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading products: $message')),
+        CustomToast.showError(
+          context: context,
+          title: 'Error Memuat Produk',
+          subtitle: message,
         );
       },
     );
@@ -575,8 +581,10 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   Future<void> _submitOrder() async {
     if (!_formKey.currentState!.validate()) return;
     if (_deliveryDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih tanggal pengambilan')),
+      CustomToast.showWarning(
+        context: context,
+        title: 'Tanggal Belum Dipilih',
+        subtitle: 'Pilih tanggal pengambilan terlebih dahulu.',
       );
       return;
     }
@@ -615,22 +623,18 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
 
     if (result.isSuccess && mounted) {
       Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isEditMode
-                ? 'Pesanan berhasil diupdate'
-                : 'Pesanan berhasil dibuat',
-          ),
-          backgroundColor: AppColors.success,
-        ),
+      CustomToast.showSuccess(
+        context: context,
+        title: isEditMode
+            ? 'Pesanan Berhasil Diupdate'
+            : 'Pesanan Berhasil Dibuat',
+        subtitle: 'Data pesanan telah disimpan.',
       );
     } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal: ${result.errorMessage}'),
-          backgroundColor: AppColors.error,
-        ),
+      CustomToast.showError(
+        context: context,
+        title: 'Gagal Menyimpan Pesanan',
+        subtitle: result.errorMessage ?? 'Terjadi kesalahan',
       );
     }
   }
@@ -681,7 +685,7 @@ class _AddProductDialogState extends State<_AddProductDialog> {
           mainAxisSize: MainAxisSize.min,
           children: [
             DropdownButtonFormField<Product>(
-              value: _selectedProduct,
+              initialValue: _selectedProduct,
               hint: const Text('Pilih Produk'),
               isExpanded: true,
               items: _getSortedProducts()

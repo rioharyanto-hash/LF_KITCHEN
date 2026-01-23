@@ -1,21 +1,27 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
+import 'package:file_picker/file_picker.dart';
 
-import '../../../../core/theme/app_theme.dart';
+import '../../../../core/services/invoice_number_service.dart';
 import '../../data/models/order.dart';
+import '../../data/providers/order_providers.dart';
 
 /// Dialog untuk print kwitansi/receipt
-class ReceiptPrintDialog extends StatefulWidget {
+class ReceiptPrintDialog extends ConsumerStatefulWidget {
   final Order order;
 
   const ReceiptPrintDialog({super.key, required this.order});
 
   @override
-  State<ReceiptPrintDialog> createState() => _ReceiptPrintDialogState();
+  ConsumerState<ReceiptPrintDialog> createState() => _ReceiptPrintDialogState();
 
   static Future<void> show(BuildContext context, Order order) {
     return showDialog(
@@ -25,7 +31,7 @@ class ReceiptPrintDialog extends StatefulWidget {
   }
 }
 
-class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
+class _ReceiptPrintDialogState extends ConsumerState<ReceiptPrintDialog> {
   final _shippingController = TextEditingController(text: '0');
   final _notesController = TextEditingController();
   final _invoiceNumberController = TextEditingController();
@@ -46,8 +52,115 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
   void initState() {
     super.initState();
     _receiptDate = DateTime.now();
-    _notesController.text = widget.order.notes ?? '';
-    _invoiceNumberController.text = _generateInvoiceNumber();
+
+    // Use saved shipping cost from order (or fallback to notes for legacy)
+    if (widget.order.shippingCost > 0) {
+      _shippingController.text = widget.order.shippingCost.toStringAsFixed(0);
+    } else {
+      // Fallback: parse shipping from notes (format: SHIPPING:25000)
+      final existingShipping = _parseShippingFromNotes(widget.order.notes);
+      _shippingController.text = existingShipping.toStringAsFixed(0);
+    }
+
+    // Remove shipping info from displayed notes
+    final cleanNotes = (widget.order.notes ?? '')
+        .replaceAll(RegExp(r'SHIPPING:\d+'), '')
+        .trim();
+    _notesController.text = cleanNotes;
+
+    // Load invoice number async
+    _loadInvoiceNumber();
+  }
+
+  Future<void> _loadInvoiceNumber() async {
+    // Use stored receipt_number if already generated (persisted on confirmation)
+    if (widget.order.receiptNumber != null &&
+        widget.order.receiptNumber!.isNotEmpty) {
+      if (mounted) {
+        setState(
+          () => _invoiceNumberController.text = widget.order.receiptNumber!,
+        );
+      }
+      return;
+    }
+
+    // Fallback for legacy orders: preview next number (without incrementing)
+    final invoiceType = _getInvoiceType();
+    final number = await InvoiceNumberService.previewNextNumber(invoiceType);
+    if (mounted) {
+      setState(() => _invoiceNumberController.text = number);
+    }
+  }
+
+  /// Determine invoice type based on order
+  String _getInvoiceType() {
+    // Check if it's a POS/Direct order (type = direct)
+    if (widget.order.orderType == OrderType.direct) {
+      return InvoiceNumberService.kasir;
+    }
+
+    // Check if it's Paketan (notes contain === ===)
+    if (_isPaketanOrder(widget.order.notes)) {
+      return InvoiceNumberService.paketan;
+    }
+
+    // Check if it's Snack Box (check item names and notes)
+    final hasSnackBoxInNotes =
+        widget.order.notes?.toUpperCase().contains('SNACK BOX') == true ||
+        widget.order.notes?.toUpperCase().contains('SNACKBOX') == true;
+    final hasSnackBoxInItems =
+        widget.order.items?.any(
+          (item) =>
+              item.productName?.toUpperCase().contains('SNACK BOX') == true ||
+              item.productName?.toUpperCase().contains('SNACKBOX') == true,
+        ) ??
+        false;
+
+    if (hasSnackBoxInNotes || hasSnackBoxInItems) {
+      return InvoiceNumberService.snackBox;
+    }
+
+    // Default to PO
+    return InvoiceNumberService.po;
+  }
+
+  double _parseShippingFromNotes(String? notes) {
+    if (notes == null) return 0;
+    final match = RegExp(r'SHIPPING:(\d+)').firstMatch(notes);
+    return match != null ? double.parse(match.group(1)!) : 0;
+  }
+
+  /// Parse isi paket dari notes (format: Isi:\n  - item1\n  - item2)
+  List<String> _parsePackageContents(String? notes) {
+    if (notes == null) return [];
+    final contents = <String>[];
+    final match = RegExp(
+      r'Isi:\n([\s\S]*?)(?:\n\nCatatan:|$)',
+    ).firstMatch(notes);
+    if (match != null) {
+      final itemsText = match.group(1) ?? '';
+      for (final line in itemsText.split('\n')) {
+        if (line.trim().startsWith('-')) {
+          contents.add(line.trim().substring(1).trim());
+        }
+      }
+    }
+    return contents;
+  }
+
+  /// Get catatan tambahan dari notes (Catatan: xxx)
+  String _getExtraNotesFromNotes(String? notes) {
+    if (notes == null) return '';
+    final match = RegExp(
+      r'Catatan:\s*(.+)$',
+      multiLine: true,
+    ).firstMatch(notes);
+    return match?.group(1)?.trim() ?? '';
+  }
+
+  /// Check if order is paketan (notes contain "=== PAKET")
+  bool _isPaketanOrder(String? notes) {
+    return notes != null && notes.contains('=== ') && notes.contains(' ===');
   }
 
   @override
@@ -56,31 +169,6 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
     _notesController.dispose();
     _invoiceNumberController.dispose();
     super.dispose();
-  }
-
-  String _generateInvoiceNumber() {
-    final now = DateTime.now();
-    final sequence = now.day.toString().padLeft(4, '0');
-    final month = _romanMonth(now.month);
-    return '$sequence/$month/${now.year}';
-  }
-
-  String _romanMonth(int month) {
-    const romans = [
-      'I',
-      'II',
-      'III',
-      'IV',
-      'V',
-      'VI',
-      'VII',
-      'VIII',
-      'IX',
-      'X',
-      'XI',
-      'XII',
-    ];
-    return romans[month - 1];
   }
 
   @override
@@ -212,6 +300,11 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Batal'),
         ),
+        OutlinedButton.icon(
+          onPressed: _savePdfToFile,
+          icon: const Icon(Icons.save),
+          label: const Text('Simpan PDF'),
+        ),
         ElevatedButton.icon(
           onPressed: _printReceipt,
           icon: const Icon(Icons.print),
@@ -221,15 +314,92 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
     );
   }
 
-  Future<void> _printReceipt() async {
+  Future<void> _savePdfToFile() async {
     final shipping = double.tryParse(_shippingController.text) ?? 0;
+
+    // Save shipping cost to order
+    if (shipping != widget.order.shippingCost) {
+      await ref
+          .read(orderRepositoryProvider)
+          .updateShipping(widget.order.id, shipping);
+      // Refresh order list
+      ref.invalidate(orderListProvider);
+    }
+
+    // Increment invoice number when actually saving
+    final invoiceType = _getInvoiceType();
+    final finalNumber = await InvoiceNumberService.getNextNumber(invoiceType);
+    _invoiceNumberController.text = finalNumber;
 
     final pdf = await _generatePdf(shipping);
 
-    await Printing.layoutPdf(
-      onLayout: (format) async => pdf,
-      name: 'Kwitansi_${_invoiceNumberController.text.replaceAll('/', '-')}',
-    );
+    // Generate descriptive filename
+    final customerName =
+        widget.order.customerName?.replaceAll(RegExp(r'[^\w\s]'), '') ??
+        'Guest';
+    final invoiceNum = _invoiceNumberController.text.replaceAll('/', '-');
+    final fileName = 'Kwitansi_${customerName}_$invoiceNum.pdf';
+
+    if (kIsWeb) {
+      // For web: use sharePdf which triggers download
+      await Printing.sharePdf(bytes: pdf, filename: fileName);
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('PDF diunduh: $fileName')));
+        Navigator.of(context).pop();
+      }
+    } else {
+      // For desktop: let user choose save location
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Simpan Kwitansi PDF',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (result != null) {
+        final file = File(result);
+        await file.writeAsBytes(pdf);
+
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('PDF disimpan: $fileName')));
+          Navigator.of(context).pop();
+        }
+      }
+    }
+  }
+
+  Future<void> _printReceipt() async {
+    final shipping = double.tryParse(_shippingController.text) ?? 0;
+
+    // Save shipping cost to order
+    if (shipping != widget.order.shippingCost) {
+      await ref
+          .read(orderRepositoryProvider)
+          .updateShipping(widget.order.id, shipping);
+      // Refresh order list
+      ref.invalidate(orderListProvider);
+    }
+
+    // Increment invoice number when actually printing
+    final invoiceType = _getInvoiceType();
+    final finalNumber = await InvoiceNumberService.getNextNumber(invoiceType);
+    _invoiceNumberController.text = finalNumber;
+
+    final pdf = await _generatePdf(shipping);
+
+    // Generate descriptive filename
+    final customerName =
+        widget.order.customerName?.replaceAll(RegExp(r'[^\w\s]'), '') ??
+        'Guest';
+    final invoiceNum = _invoiceNumberController.text.replaceAll('/', '-');
+    final fileName = 'Kwitansi_${customerName}_$invoiceNum';
+
+    await Printing.layoutPdf(onLayout: (format) async => pdf, name: fileName);
 
     // Auto close dialog after printing
     if (mounted) {
@@ -393,14 +563,23 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
                   // Items
                   if (order.items != null)
                     for (var i = 0; i < order.items!.length; i++) ...[
-                      // Main item (not starting with " -")
+                      // Main item row
                       if (!order.items![i].productName!.startsWith('  -'))
                         pw.TableRow(
                           children: [
                             _tableCell(
                               '${order.items!.where((e) => !e.productName!.startsWith('  -')).toList().indexOf(order.items![i]) + 1}',
                             ),
-                            _tableCell(order.items![i].productName ?? '-'),
+                            // For paketan: show name + contents below
+                            _isPaketanOrder(order.notes) &&
+                                    order.items![i].productId == null
+                                ? _tableCellWithContents(
+                                    order.items![i].productName ?? '-',
+                                    _parsePackageContents(order.notes),
+                                  )
+                                : _tableCell(
+                                    order.items![i].productName ?? '-',
+                                  ),
                             _tableCell(
                               '${order.items![i].quantity}',
                               align: pw.TextAlign.center,
@@ -413,22 +592,22 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
                             ),
                           ],
                         ),
-                      // Sub-item (ISI) - starting with "  -"
+                      // Sub-item (ISI) - starting with "  -" for snackbox
                       if (order.items![i].productName!.startsWith('  -'))
                         pw.TableRow(
                           children: [
                             _tableCell(
-                              i == 1 ? 'ISI' : '-',
+                              i == 1 ? 'ISI' : '',
                               align: pw.TextAlign.center,
-                            ), // Show ISI for first sub-item
+                            ),
                             _tableCell(
-                              order.items![i].productName!.substring(2),
-                            ), // Remove "  " prefix
-                            _tableCell(''), // No qty for sub-items
+                              order.items![i].productName!.substring(4),
+                            ),
+                            _tableCell(''),
                             _tableCell(
                               'Rp ${_formatNumber(order.items![i].unitPrice)}',
                             ),
-                            _tableCell(''), // No subtotal for sub-items
+                            _tableCell(''),
                           ],
                         ),
                     ],
@@ -515,8 +694,8 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
                 ),
               ),
 
-              // Notes - moved below Terbilang with box
-              if (_notesController.text.isNotEmpty)
+              // Notes - show only extra notes for paketan, full notes for others
+              if (_getDisplayNotes().isNotEmpty)
                 pw.Container(
                   margin: const pw.EdgeInsets.only(top: 10),
                   padding: const pw.EdgeInsets.all(8),
@@ -534,7 +713,7 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
                       ),
                       pw.Expanded(
                         child: pw.Text(
-                          _notesController.text,
+                          _getDisplayNotes(),
                           style: const pw.TextStyle(fontSize: 10),
                         ),
                       ),
@@ -631,6 +810,36 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
     );
   }
 
+  /// Table cell with package contents listed below
+  pw.Widget _tableCellWithContents(String title, List<String> contents) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(5),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(title),
+          if (contents.isNotEmpty) ...[
+            pw.SizedBox(height: 4),
+            pw.Text(
+              'Isi:',
+              style: pw.TextStyle(fontSize: 8, fontStyle: pw.FontStyle.italic),
+            ),
+            for (final item in contents)
+              pw.Text('  - $item', style: const pw.TextStyle(fontSize: 8)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Get notes to display - for paketan shows extra notes only
+  String _getDisplayNotes() {
+    if (_isPaketanOrder(widget.order.notes)) {
+      return _getExtraNotesFromNotes(_notesController.text);
+    }
+    return _notesController.text;
+  }
+
   String _numberToWords(int number) {
     if (number == 0) return 'Nol';
 
@@ -651,18 +860,24 @@ class _ReceiptPrintDialogState extends State<ReceiptPrintDialog> {
 
     if (number < 12) return units[number];
     if (number < 20) return '${units[number - 10]} Belas';
-    if (number < 100)
+    if (number < 100) {
       return '${units[number ~/ 10]} Puluh${number % 10 > 0 ? ' ${units[number % 10]}' : ''}';
-    if (number < 200)
+    }
+    if (number < 200) {
       return 'Seratus${number % 100 > 0 ? ' ${_numberToWords(number % 100)}' : ''}';
-    if (number < 1000)
+    }
+    if (number < 1000) {
       return '${units[number ~/ 100]} Ratus${number % 100 > 0 ? ' ${_numberToWords(number % 100)}' : ''}';
-    if (number < 2000)
+    }
+    if (number < 2000) {
       return 'Seribu${number % 1000 > 0 ? ' ${_numberToWords(number % 1000)}' : ''}';
-    if (number < 1000000)
+    }
+    if (number < 1000000) {
       return '${_numberToWords(number ~/ 1000)} Ribu${number % 1000 > 0 ? ' ${_numberToWords(number % 1000)}' : ''}';
-    if (number < 1000000000)
+    }
+    if (number < 1000000000) {
       return '${_numberToWords(number ~/ 1000000)} Juta${number % 1000000 > 0 ? ' ${_numberToWords(number % 1000000)}' : ''}';
+    }
 
     return number.toString();
   }

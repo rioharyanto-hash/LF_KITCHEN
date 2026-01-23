@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../data/models/invoice.dart';
 import '../../data/providers/invoice_providers.dart';
 import '../../../orders/data/providers/order_providers.dart';
@@ -17,11 +18,6 @@ class InvoiceListPage extends ConsumerStatefulWidget {
 
 class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
   InvoiceStatus? _selectedStatus;
-  static final _currencyFormat = NumberFormat.currency(
-    locale: 'id_ID',
-    symbol: 'Rp ',
-    decimalDigits: 0,
-  );
 
   @override
   void initState() {
@@ -81,7 +77,7 @@ class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
                   ),
                 );
               },
-              error: (msg, _) => Center(child: Text('Error: $msg')),
+              error: (msg, code) => Center(child: Text('Error: $msg')),
             ),
           ),
         ],
@@ -93,52 +89,97 @@ class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
     final controller = TextEditingController(
       text: invoice.remainingAmount.toStringAsFixed(0),
     );
+    String selectedMethod = 'Cash';
+    final methods = ['Cash', 'Transfer', 'QRIS'];
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Bayar Tagihan'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Pelanggan: ${invoice.customerName ?? "-"}'),
-            const SizedBox(height: 8),
-            Text('Sisa Tagihan: ${invoice.formattedRemaining}'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'Jumlah Bayar',
-                prefixText: 'Rp ',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Bayar Tagihan'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Pelanggan: ${invoice.customerName ?? "-"}'),
+              const SizedBox(height: 8),
+              Text('Sisa Tagihan: ${invoice.formattedRemaining}'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(
+                  labelText: 'Jumlah Bayar',
+                  prefixText: 'Rp ',
+                ),
+                keyboardType: TextInputType.number,
               ),
-              keyboardType: TextInputType.number,
+              const SizedBox(height: 16),
+              const Text(
+                'Metode Pembayaran',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: methods.map((method) {
+                  final isSelected = selectedMethod == method;
+                  return ChoiceChip(
+                    label: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          method == 'Cash'
+                              ? Icons.money
+                              : method == 'Transfer'
+                              ? Icons.account_balance
+                              : Icons.qr_code,
+                          size: 16,
+                          color: isSelected ? Colors.white : AppColors.primary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(method),
+                      ],
+                    ),
+                    selected: isSelected,
+                    selectedColor: AppColors.primary,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                    ),
+                    onSelected: (selected) {
+                      setDialogState(() => selectedMethod = method);
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final amount = double.tryParse(controller.text) ?? 0;
+                if (amount > 0) {
+                  final success = await ref
+                      .read(invoiceListProvider.notifier)
+                      .recordPayment(invoice.id, amount);
+                  if (success && context.mounted) {
+                    Navigator.pop(context);
+                    CustomToast.showSuccess(
+                      context: context,
+                      title: 'Pembayaran Berhasil',
+                      subtitle:
+                          'Dibayar via $selectedMethod • Rp ${controller.text}',
+                    );
+                  }
+                }
+              },
+              child: const Text('Bayar'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final amount = double.tryParse(controller.text) ?? 0;
-              if (amount > 0) {
-                final success = await ref
-                    .read(invoiceListProvider.notifier)
-                    .recordPayment(invoice.id, amount);
-                if (success && context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Pembayaran berhasil!')),
-                  );
-                }
-              }
-            },
-            child: const Text('Bayar'),
-          ),
-        ],
       ),
     );
   }
@@ -157,16 +198,19 @@ class _FilterChips extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          _buildChip(context, null, 'Semua'),
-          const SizedBox(width: 8),
-          _buildChip(context, InvoiceStatus.unpaid, 'Belum Lunas'),
-          const SizedBox(width: 8),
-          _buildChip(context, InvoiceStatus.partial, 'Sebagian'),
-          const SizedBox(width: 8),
-          _buildChip(context, InvoiceStatus.paid, 'Lunas'),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildChip(context, null, 'Semua'),
+            const SizedBox(width: 8),
+            _buildChip(context, InvoiceStatus.unpaid, 'Belum Lunas'),
+            const SizedBox(width: 8),
+            _buildChip(context, InvoiceStatus.partial, 'Sebagian'),
+            const SizedBox(width: 8),
+            _buildChip(context, InvoiceStatus.paid, 'Lunas'),
+          ],
+        ),
       ),
     );
   }
@@ -177,7 +221,7 @@ class _FilterChips extends StatelessWidget {
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => onStatusChanged(status),
-      selectedColor: AppColors.primary.withOpacity(0.2),
+      selectedColor: AppColors.primary.withValues(alpha: 0.2),
       checkmarkColor: AppColors.primary,
     );
   }
@@ -303,6 +347,14 @@ class _ExpandableInvoiceCardState
                               fontSize: 16,
                             ),
                           ),
+                          if (invoice.shippingCost > 0)
+                            Text(
+                              'Ongkir: ${NumberFormat.currency(locale: 'id_ID', symbol: 'Rp ', decimalDigits: 0).format(invoice.shippingCost)}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[600],
+                              ),
+                            ),
                           if (!isPaid)
                             Text(
                               'Sisa: ${invoice.formattedRemaining}',
@@ -478,7 +530,7 @@ class _ExpandableInvoiceCardState
           ),
         );
       },
-      error: (msg, _) => Padding(
+      error: (msg, code) => Padding(
         padding: const EdgeInsets.all(16),
         child: Text('Error: $msg'),
       ),
@@ -514,7 +566,7 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

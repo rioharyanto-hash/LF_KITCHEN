@@ -1,0 +1,49 @@
+#!/bin/sh
+# Pre-commit hook for LF Kitchen Flutter project
+# This hook runs flutter analyze before each commit to prevent
+# code with linting issues from being committed.
+#
+# Installation:
+# 1. Copy this file to .git/hooks/pre-commit
+# 2. Make it executable: chmod +x .git/hooks/pre-commit
+# Or run: ./scripts/install-hooks.ps1 (Windows)
+
+echo "🔍 Running Flutter Analyze..."
+echo "================================"
+
+# Change to the project root directory
+cd "$(git rev-parse --show-toplevel)"
+
+# Run flutter analyze
+flutter analyze --no-pub
+
+# Capture the exit code
+ANALYZE_EXIT_CODE=$?
+
+if [ $ANALYZE_EXIT_CODE -ne 0 ]; then
+    echo ""
+    echo "❌ Flutter analyze found issues!"
+    echo "================================"
+    echo "Please fix the issues above before committing."
+    echo ""
+    echo "Tips:"
+    echo "  - Run 'dart fix --apply' to auto-fix some issues"
+    echo "  - Check 'analysis_options.yaml' for lint rules"
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "✅ Flutter analyze passed!"
+echo "================================"
+echo ""
+
+# Optionally run tests (uncomment if desired)
+# echo "🧪 Running tests..."
+# flutter test
+# if [ $? -ne 0 ]; then
+#     echo "❌ Tests failed!"
+#     exit 1
+# fi
+
+exit 0

@@ -10,6 +10,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/custom_toast.dart';
 import '../../../../core/utils/async_state.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../orders/data/models/order.dart';
@@ -83,77 +84,114 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 600;
+    final dateFormat = isMobile
+        ? DateFormat('dd MMM')
+        : AppFormatters.dateMedium;
+
     return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: 56,
+      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
       decoration: BoxDecoration(color: AppColors.primary),
       child: Row(
         children: [
-          const Text(
+          Text(
             'Laporan',
             style: TextStyle(
-              fontSize: 20,
+              fontSize: isMobile ? 16 : 20,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          const SizedBox(width: 24),
+          SizedBox(width: isMobile ? 8 : 24),
 
           // Date Range Picker
-          InkWell(
-            onTap: _pickDateRange,
-            borderRadius: BorderRadius.circular(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.date_range, size: 18, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${AppFormatters.dateMedium.format(_dateRange!.start)} - ${AppFormatters.dateMedium.format(_dateRange!.end)}',
-                    style: const TextStyle(fontSize: 13, color: Colors.white),
+          Expanded(
+            child: InkWell(
+              onTap: _pickDateRange,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 8 : 12,
+                  vertical: isMobile ? 6 : 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
                   ),
-                ],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.date_range,
+                      size: isMobile ? 14 : 18,
+                      color: Colors.white,
+                    ),
+                    SizedBox(width: isMobile ? 4 : 8),
+                    Flexible(
+                      child: Text(
+                        '${dateFormat.format(_dateRange!.start)} - ${dateFormat.format(_dateRange!.end)}',
+                        style: TextStyle(
+                          fontSize: isMobile ? 11 : 13,
+                          color: Colors.white,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
 
-          const Spacer(),
-
-          // Print Button
-          OutlinedButton.icon(
-            onPressed: _printReport,
-            icon: const Icon(Icons.print, size: 18, color: Colors.white),
-            label: const Text('Print', style: TextStyle(color: Colors.white)),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+          // Print & Export Buttons - hide on mobile
+          if (!isMobile) ...[
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _printReport,
+              icon: const Icon(Icons.print, size: 18, color: Colors.white),
+              label: const Text('Print', style: TextStyle(color: Colors.white)),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.5)),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-
-          // Export Button
-          ElevatedButton.icon(
-            onPressed: _exportToCsv,
-            icon: const Icon(Icons.download, size: 18),
-            label: const Text('Export'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              foregroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: _exportToCsv,
+              icon: const Icon(Icons.download, size: 18),
+              label: const Text('Export'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
+          ],
+          SizedBox(width: isMobile ? 4 : 8),
 
           // Refresh
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _loadData,
+          SizedBox(
+            width: isMobile ? 32 : 40,
+            height: isMobile ? 32 : 40,
+            child: IconButton(
+              icon: Icon(
+                Icons.refresh,
+                color: Colors.white,
+                size: isMobile ? 18 : 24,
+              ),
+              padding: EdgeInsets.zero,
+              onPressed: _loadData,
+            ),
           ),
         ],
       ),
@@ -234,58 +272,83 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
 
         final totalSales = filteredOrders.fold<double>(
           0,
-          (sum, o) => sum + o.totalAmount,
+          (sum, o) => sum + o.grandTotal,
         );
         final totalDp = filteredOrders.fold<double>(
           0,
           (sum, o) => sum + o.dpAmount,
         );
 
+        final isMobile = MediaQuery.of(context).size.width < 600;
+
+        final summaryCards = [
+          _SummaryCard(
+            title: 'Total Penjualan',
+            value: AppFormatters.formatCurrency(totalSales),
+            icon: Icons.attach_money,
+            color: Colors.green,
+          ),
+          _SummaryCard(
+            title: 'Jumlah Pesanan',
+            value: '${filteredOrders.length} pesanan',
+            icon: Icons.receipt_long,
+            color: Colors.blue,
+          ),
+          _SummaryCard(
+            title: 'Total DP',
+            value: AppFormatters.formatCurrency(totalDp),
+            icon: Icons.payments,
+            color: Colors.orange,
+          ),
+        ];
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryCard(
-                    title: 'Total Penjualan',
-                    value: AppFormatters.formatCurrency(totalSales),
-                    icon: Icons.attach_money,
-                    color: Colors.green,
-                  ),
+            if (isMobile)
+              ...summaryCards.map(
+                (card) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: card,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _SummaryCard(
-                    title: 'Jumlah Pesanan',
-                    value: '${filteredOrders.length} pesanan',
-                    icon: Icons.receipt_long,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _SummaryCard(
-                    title: 'Total DP',
-                    value: AppFormatters.formatCurrency(totalDp),
-                    icon: Icons.payments,
-                    color: Colors.orange,
-                  ),
-                ),
-              ],
-            ),
+              )
+            else
+              Row(
+                children: summaryCards
+                    .map(
+                      (card) => Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: card,
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
             const SizedBox(height: 24),
             _buildDataTable(
-              columns: ['Tanggal', 'Pelanggan', 'Total', 'DP', 'Status'],
+              columns: [
+                'Tanggal',
+                'Pelanggan',
+                'Total',
+                'DP',
+                'Pembayaran',
+                'Metode',
+                'Update',
+              ],
               rows: filteredOrders
                   .take(50)
                   .map(
-                    (o) => [
+                    (o) => <String>[
                       AppFormatters.dateShort.format(o.orderDate),
                       o.customerName ?? '-',
-                      AppFormatters.formatCurrency(o.totalAmount),
+                      AppFormatters.formatCurrency(o.grandTotal),
                       AppFormatters.formatCurrency(o.dpAmount),
-                      o.paymentStatus.name,
+                      o.paymentLabel,
+                      o.paymentMethod ?? '-',
+                      o.updatedAt != null
+                          ? AppFormatters.dateShort.format(o.updatedAt!)
+                          : '-',
                     ],
                   )
                   .toList(),
@@ -293,7 +356,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ],
         );
       },
-      error: (msg, _) => Center(child: Text('Error: $msg')),
+      error: (msg, code) => Center(child: Text('Error: $msg')),
     );
   }
 
@@ -317,32 +380,47 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           totalPurchases += p.totalCost;
         }
 
+        final isMobile = MediaQuery.of(context).size.width < 600;
+
+        final summaryCards = [
+          _SummaryCard(
+            title: 'Total Pembelian',
+            value: AppFormatters.formatCurrency(totalPurchases),
+            icon: Icons.shopping_cart,
+            color: Colors.red,
+          ),
+          _SummaryCard(
+            title: 'Jumlah Transaksi',
+            value: '${filteredPurchases.length} transaksi',
+            icon: Icons.receipt,
+            color: Colors.purple,
+          ),
+        ];
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryCard(
-                    title: 'Total Pembelian',
-                    value: AppFormatters.formatCurrency(totalPurchases),
-                    icon: Icons.shopping_cart,
-                    color: Colors.red,
-                  ),
+            if (isMobile)
+              ...summaryCards.map(
+                (card) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: card,
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _SummaryCard(
-                    title: 'Jumlah Transaksi',
-                    value: '${filteredPurchases.length} transaksi',
-                    icon: Icons.receipt,
-                    color: Colors.purple,
+              )
+            else
+              Row(
+                children: [
+                  ...summaryCards.map(
+                    (card) => Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: card,
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                const Expanded(child: SizedBox()),
-              ],
-            ),
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
             const SizedBox(height: 24),
             _buildDataTable(
               columns: ['Tanggal', 'Supplier', 'Total', 'No. Invoice'],
@@ -361,7 +439,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           ],
         );
       },
-      error: (msg, _) => Center(child: Text('Error: $msg')),
+      error: (msg, code) => Center(child: Text('Error: $msg')),
     );
   }
 
@@ -384,11 +462,11 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               o.orderDate.isBefore(
                 _dateRange!.end.add(const Duration(days: 1)),
               )) {
-            totalRevenue += o.totalAmount;
+            totalRevenue += o.grandTotal;
           }
         }
       },
-      error: (_, __) {},
+      error: (message, code) {},
     );
 
     purchaseState.when(
@@ -406,35 +484,50 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
           }
         }
       },
-      error: (_, __) {},
+      error: (message, code) {},
     );
 
     final profit = totalRevenue - totalCost;
     final profitMargin = totalRevenue > 0 ? (profit / totalRevenue * 100) : 0.0;
+    final isMobile = MediaQuery.of(context).size.width < 600;
+
+    final summaryCards = [
+      _SummaryCard(
+        title: 'Pendapatan',
+        value: AppFormatters.formatCurrency(totalRevenue),
+        icon: Icons.trending_up,
+        color: Colors.green,
+      ),
+      _SummaryCard(
+        title: 'Pengeluaran',
+        value: AppFormatters.formatCurrency(totalCost),
+        icon: Icons.trending_down,
+        color: Colors.red,
+      ),
+    ];
 
     return Column(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _SummaryCard(
-                title: 'Pendapatan',
-                value: AppFormatters.formatCurrency(totalRevenue),
-                icon: Icons.trending_up,
-                color: Colors.green,
-              ),
+        if (isMobile)
+          ...summaryCards.map(
+            (card) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: card,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: _SummaryCard(
-                title: 'Pengeluaran',
-                value: AppFormatters.formatCurrency(totalCost),
-                icon: Icons.trending_down,
-                color: Colors.red,
-              ),
-            ),
-          ],
-        ),
+          )
+        else
+          Row(
+            children: summaryCards
+                .map(
+                  (card) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: card,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
         const SizedBox(height: 24),
         Card(
           elevation: 0,
@@ -446,28 +539,34 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.all(32),
+            padding: EdgeInsets.all(isMobile ? 16 : 32),
             child: Column(
               children: [
-                const Text(
+                Text(
                   'KEUNTUNGAN BERSIH',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: isMobile ? 12 : 14,
+                  ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: isMobile ? 4 : 8),
                 Text(
                   AppFormatters.formatCurrency(profit),
                   style: TextStyle(
-                    fontSize: 36,
+                    fontSize: isMobile ? 24 : 36,
                     fontWeight: FontWeight.bold,
                     color: profit >= 0
                         ? Colors.green.shade700
                         : Colors.red.shade700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: isMobile ? 4 : 8),
                 Text(
                   'Margin: ${profitMargin.toStringAsFixed(1)}%',
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(
+                    color: Colors.grey.shade600,
+                    fontSize: isMobile ? 12 : 14,
+                  ),
                 ),
               ],
             ),
@@ -597,7 +696,7 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
             ]);
           }
         },
-        error: (_, __) {},
+        error: (message, code) {},
       );
 
       final csv = const ListToCsvConverter().convert(rows);
@@ -608,20 +707,18 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       await file.writeAsString(csv);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('File berhasil disimpan: $fileName'),
-            backgroundColor: Colors.green,
-          ),
+        CustomToast.showSuccess(
+          context: context,
+          title: 'File Berhasil Disimpan',
+          subtitle: fileName,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal export: $e'),
-            backgroundColor: Colors.red,
-          ),
+        CustomToast.showError(
+          context: context,
+          title: 'Gagal Export',
+          subtitle: e.toString(),
         );
       }
     }

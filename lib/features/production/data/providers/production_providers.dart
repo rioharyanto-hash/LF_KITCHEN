@@ -4,6 +4,7 @@ import '../../../../core/utils/async_state.dart';
 import '../../../../core/utils/result.dart';
 import '../../../orders/data/models/order.dart';
 import '../../../orders/data/repositories/order_repository.dart';
+import '../repositories/production_repository.dart';
 
 /// Model untuk item produksi (agregasi per produk)
 class ProductionItem {
@@ -25,16 +26,34 @@ class ProductionItem {
 /// Detail pesanan per item produksi
 class ProductionOrderDetail {
   final String orderId;
+  final String orderItemId; // For updating produced_qty
+  final String? productId; // For updating stock
+  final String productName;
+  final String? productSize;
   final String customerName;
   final int quantity;
+  final int producedQty; // Jumlah sudah diproduksi
   final DateTime? deliveryDate;
+  final DateTime? orderDate; // Tanggal pemesanan
 
   ProductionOrderDetail({
     required this.orderId,
+    required this.orderItemId,
+    this.productId,
+    required this.productName,
+    this.productSize,
     required this.customerName,
     required this.quantity,
+    this.producedQty = 0,
     this.deliveryDate,
+    this.orderDate,
   });
+
+  /// Apakah produksi sudah selesai
+  bool get isComplete => producedQty >= quantity;
+
+  /// Sisa yang harus diproduksi
+  int get remaining => quantity - producedQty;
 }
 
 /// Model untuk produksi yang dikelompokkan per tanggal
@@ -102,23 +121,23 @@ class ProductionNotifier extends StateNotifier<AsyncState<ProductionState>> {
 
     draftResult.when(
       success: (data) => allOrders.addAll(data),
-      failure: (msg, _) => print('Draft fetch failed: $msg'),
+      failure: (msg, code) {},
     );
 
     confirmedResult.when(
       success: (data) => allOrders.addAll(data),
-      failure: (msg, _) => print('Confirmed fetch failed: $msg'),
+      failure: (msg, code) {},
     );
 
     processingResult.when(
       success: (data) => allOrders.addAll(data),
-      failure: (msg, _) => print('Processing fetch failed: $msg'),
+      failure: (msg, code) {},
     );
 
-    // Filter orders with delivery date within next 3 days
     allOrders = allOrders.where((order) {
-      if (order.deliveryDate == null)
+      if (order.deliveryDate == null) {
         return true; // Include orders without date
+      }
       return order.deliveryDate!.isAfter(
             today.subtract(const Duration(days: 1)),
           ) &&
@@ -180,9 +199,15 @@ class ProductionNotifier extends StateNotifier<AsyncState<ProductionState>> {
             ...existingItem.orders,
             ProductionOrderDetail(
               orderId: order.id,
+              orderItemId: item.id,
+              productId: item.productId,
+              productName: productName,
+              productSize: null, // OrderItem doesn't have size yet
               customerName: order.customerName ?? 'Guest',
               quantity: qty,
+              producedQty: item.producedQty,
               deliveryDate: order.deliveryDate,
+              orderDate: order.orderDate,
             ),
           ],
         );
@@ -233,3 +258,9 @@ final productionProvider =
       final repository = ref.watch(productionRepositoryProvider);
       return ProductionNotifier(repository);
     });
+
+/// Provider untuk ProductionRepository (untuk record produksi dan stock)
+final prodLogRepoProvider = Provider<ProductionRepository>((ref) {
+  final client = ref.watch(supabaseClientProvider);
+  return ProductionRepository(client);
+});

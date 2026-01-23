@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
@@ -7,12 +8,16 @@ import 'core/config/supabase_config.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/widgets/state_widgets.dart';
+import 'core/providers/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize locale data for Indonesian
   await initializeDateFormatting('id_ID', null);
+
+  // Initialize SharedPreferences for theme persistence
+  final prefs = await SharedPreferences.getInstance();
 
   // Initialize Supabase jika sudah dikonfigurasi
   if (SupabaseConfig.isConfigured) {
@@ -22,7 +27,12 @@ void main() async {
     );
   }
 
-  runApp(const ProviderScope(child: LFKitchenApp()));
+  runApp(
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const LFKitchenApp(),
+    ),
+  );
 }
 
 class LFKitchenApp extends ConsumerWidget {
@@ -31,13 +41,14 @@ class LFKitchenApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeProvider);
 
     return MaterialApp.router(
       title: 'LF Kitchen',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       routerConfig: router,
       builder: (context, child) {
         // Menampilkan warning banner jika Supabase belum dikonfigurasi
