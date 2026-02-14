@@ -1,3 +1,8 @@
 [build]
-  command = "bash ./build.sh"
   publish = "build/web"
+  command = "bash scripts/install_flutter.sh"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
