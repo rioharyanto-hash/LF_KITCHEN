@@ -12,40 +12,96 @@ final productRepositoryProvider = Provider<ProductRepository>((ref) {
 });
 
 /// State Notifier untuk Products List
+/// State Notifier untuk Products List
 class ProductListNotifier extends StateNotifier<AsyncState<List<Product>>> {
   final ProductRepository _repository;
 
+  // Pagination State
+  int _page = 1;
+  static const int _pageSize = 1000;
+  bool _hasMore = true;
+
   ProductListNotifier(this._repository) : super(const AsyncState.initial());
 
-  Future<void> loadProducts() async {
-    state = const AsyncState.loading();
-    final result = await _repository.getAll();
+  Future<void> loadProducts({bool isRefresh = false}) async {
+    if (isRefresh) {
+      _page = 1;
+      _hasMore = true;
+      // Keep data for pull-to-refresh UX
+      state = state.copyWithLoading();
+    } else {
+      _page = 1;
+      _hasMore = true;
+      state = const AsyncState.loading();
+    }
+
+    final result = await _repository.getAll(page: _page, pageSize: _pageSize);
     result.when(
-      success: (data) => state = AsyncState.success(data),
+      success: (data) {
+        _hasMore = data.length >= _pageSize;
+        state = AsyncState.success(data);
+      },
       failure: (message, code) =>
           state = AsyncState.error(message, errorCode: code),
+    );
+  }
+
+  Future<void> loadMore() async {
+    // Prevent duplicate calls or calls when no more data
+    if (!_hasMore || state.isLoading) return;
+
+    // Keep current data while loading next page
+    state = state.copyWithLoading();
+
+    final nextPage = _page + 1;
+    final result = await _repository.getAll(
+      page: nextPage,
+      pageSize: _pageSize,
+    );
+
+    result.when(
+      success: (newProducts) {
+        if (newProducts.length < _pageSize) {
+          _hasMore = false;
+        } else {
+          _page = nextPage;
+        }
+
+        // Append new data to existing data
+        final currentList = state.data ?? [];
+        state = AsyncState.success([...currentList, ...newProducts]);
+      },
+      failure: (message, code) {
+        // In case of error, revert to success with old data + show error?
+        // Or just show error state (which hides list)?
+        // For better UX, we might want a 'toast' error instead of replacing the screen.
+        // But AsyncState is simple. Let's just set error for now.
+        // Users can Retry via UI.
+        state = AsyncState.error(message, errorCode: code);
+      },
     );
   }
 
   Future<void> refresh() async {
-    state = state.copyWithLoading();
-    final result = await _repository.getAll();
-    result.when(
-      success: (data) => state = AsyncState.success(data),
-      failure: (message, code) =>
-          state = AsyncState.error(message, errorCode: code),
-    );
+    await loadProducts(isRefresh: true);
   }
 
   Future<void> searchProducts(String query) async {
     if (query.isEmpty) {
+      // Reset to initial load
       await loadProducts();
       return;
     }
+
+    // Search resets pagination context effectively
     state = const AsyncState.loading();
     final result = await _repository.search(query);
     result.when(
-      success: (data) => state = AsyncState.success(data),
+      success: (data) {
+        // Disabling pagination for search results for now
+        _hasMore = false;
+        state = AsyncState.success(data);
+      },
       failure: (message, code) =>
           state = AsyncState.error(message, errorCode: code),
     );
@@ -54,7 +110,9 @@ class ProductListNotifier extends StateNotifier<AsyncState<List<Product>>> {
   Future<bool> deleteProduct(String id) async {
     final result = await _repository.delete(id);
     if (result.isSuccess) {
-      await loadProducts();
+      // Refresh list to ensure consistency (keeping current page would be consistent but complex)
+      // Simpler: Reload from scratch
+      await loadProducts(isRefresh: true);
       return true;
     }
     return false;

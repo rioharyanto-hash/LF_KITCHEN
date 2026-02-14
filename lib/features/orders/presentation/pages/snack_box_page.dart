@@ -104,17 +104,26 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
 
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
         title: const Text('Pesan Snack Box'),
         actions: [
           Container(
             margin: const EdgeInsets.only(right: 8),
-            child: OutlinedButton.icon(
+            child: ElevatedButton.icon(
               onPressed: () => context.go('/orders?view=list'),
-              icon: const Icon(Icons.list_alt, size: 18),
-              label: Text(isMobile ? 'Daftar' : 'Lihat Daftar'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white70),
+              icon: Icon(Icons.list_alt, size: 18, color: AppColors.primary),
+              label: Text(
+                isMobile ? 'Daftar' : 'Daftar Pesanan',
+                style: TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: AppColors.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
               ),
             ),
           ),
@@ -208,6 +217,7 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
         final waters = products
             .where(
               (p) =>
+                  p.category?.toLowerCase() == 'minuman' ||
                   p.category?.toLowerCase().contains('air') == true ||
                   p.name.toLowerCase().contains('air mineral'),
             )

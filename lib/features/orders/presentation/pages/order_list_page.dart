@@ -71,174 +71,192 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Filter Chips with Add Button
-          _FilterChips(
-            selectedStatus: _selectedStatus,
-            onStatusChanged: (status) {
-              setState(() => _selectedStatus = status);
-              ref
-                  .read(orderListProvider.notifier)
-                  .loadOrders(type: OrderType.po, status: status);
-            },
-            onAdd: () => _showAddOrderDialog(context),
-          ),
-          // Sort Dropdown
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.sort, size: 20, color: Colors.grey),
-                const SizedBox(width: 8),
-                const Text('Urutkan: ', style: TextStyle(color: Colors.grey)),
-                DropdownButton<OrderSortOption>(
-                  value: _sortOption,
-                  underline: const SizedBox(),
-                  isDense: true,
-                  items: const [
-                    DropdownMenuItem(
-                      value: OrderSortOption.deliveryDateAsc,
-                      child: Text('Tgl Ambil (Terdekat)'),
-                    ),
-                    DropdownMenuItem(
-                      value: OrderSortOption.deliveryDateDesc,
-                      child: Text('Tgl Ambil (Terjauh)'),
-                    ),
-                    DropdownMenuItem(
-                      value: OrderSortOption.orderDateDesc,
-                      child: Text('Tgl Pesan (Terbaru)'),
-                    ),
-                    DropdownMenuItem(
-                      value: OrderSortOption.orderDateAsc,
-                      child: Text('Tgl Pesan (Terlama)'),
-                    ),
-                    DropdownMenuItem(
-                      value: OrderSortOption.customerName,
-                      child: Text('Nama Pelanggan'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() => _sortOption = value);
-                    }
-                  },
-                ),
-              ],
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (scrollInfo) {
+          if (scrollInfo.metrics.pixels >=
+                  scrollInfo.metrics.maxScrollExtent - 200 &&
+              scrollInfo.metrics.axis == Axis.vertical) {
+            ref.read(orderListProvider.notifier).loadMore();
+          }
+          return false;
+        },
+        child: Column(
+          children: [
+            // Filter Chips with Add Button
+            _FilterChips(
+              selectedStatus: _selectedStatus,
+              onStatusChanged: (status) {
+                setState(() => _selectedStatus = status);
+                ref
+                    .read(orderListProvider.notifier)
+                    .loadOrders(type: OrderType.po, status: status);
+              },
+              onAdd: () => _showAddOrderDialog(context),
             ),
-          ),
-          // Order List
-          Expanded(
-            child: orderState.when(
-              initial: () => const Center(child: Text('Memuat data...')),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              success: (orders) {
-                if (orders.isEmpty) {
-                  return _EmptyState(selectedStatus: _selectedStatus);
-                }
-                // Sort orders based on selected option
-                final sortedOrders = List<Order>.from(orders);
-                switch (_sortOption) {
-                  case OrderSortOption.deliveryDateAsc:
-                    sortedOrders.sort((a, b) {
-                      if (a.deliveryDate == null && b.deliveryDate == null) {
-                        return 0;
-                      }
-                      if (a.deliveryDate == null) {
-                        return 1;
-                      }
-                      if (b.deliveryDate == null) {
-                        return -1;
-                      }
-                      return a.deliveryDate!.compareTo(b.deliveryDate!);
-                    });
-                    break;
-                  case OrderSortOption.deliveryDateDesc:
-                    sortedOrders.sort((a, b) {
-                      if (a.deliveryDate == null && b.deliveryDate == null) {
-                        return 0;
-                      }
-                      if (a.deliveryDate == null) {
-                        return 1;
-                      }
-                      if (b.deliveryDate == null) {
-                        return -1;
-                      }
-                      return b.deliveryDate!.compareTo(a.deliveryDate!);
-                    });
-                    break;
-                  case OrderSortOption.orderDateDesc:
-                    sortedOrders.sort(
-                      (a, b) => b.orderDate.compareTo(a.orderDate),
-                    );
-                    break;
-                  case OrderSortOption.orderDateAsc:
-                    sortedOrders.sort(
-                      (a, b) => a.orderDate.compareTo(b.orderDate),
-                    );
-                    break;
-                  case OrderSortOption.customerName:
-                    sortedOrders.sort(
-                      (a, b) => (a.customerName ?? '').compareTo(
-                        b.customerName ?? '',
+            // Sort Dropdown
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.sort, size: 20, color: Colors.grey),
+                  const SizedBox(width: 8),
+                  const Text('Urutkan: ', style: TextStyle(color: Colors.grey)),
+                  DropdownButton<OrderSortOption>(
+                    value: _sortOption,
+                    underline: const SizedBox(),
+                    isDense: true,
+                    items: const [
+                      DropdownMenuItem(
+                        value: OrderSortOption.deliveryDateAsc,
+                        child: Text('Tgl Ambil (Terdekat)'),
                       ),
-                    );
-                    break;
-                }
-                return RefreshIndicator(
-                  onRefresh: () =>
-                      ref.read(orderListProvider.notifier).loadPOOrders(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: sortedOrders.length,
-                    itemBuilder: (context, index) {
-                      final order = sortedOrders[index];
-                      final isHighlighted = widget.highlightOrderId == order.id;
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        color: isHighlighted
-                            ? AppColors.primary.withValues(alpha: 0.1)
-                            : null,
-                        shape: isHighlighted
-                            ? RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(
-                                  color: AppColors.primary,
-                                  width: 2,
-                                ),
-                              )
-                            : null,
-                        child: _OrderRow(
-                          order: order,
-                          onEdit: () => _showEditOrderDialog(context, order),
-                          onStatusChange: (status) =>
-                              _updateStatus(order, status),
-                          onPayment: () => _showPaymentDialog(context, order),
-                        ),
-                      );
+                      DropdownMenuItem(
+                        value: OrderSortOption.deliveryDateDesc,
+                        child: Text('Tgl Ambil (Terjauh)'),
+                      ),
+                      DropdownMenuItem(
+                        value: OrderSortOption.orderDateDesc,
+                        child: Text('Tgl Pesan (Terbaru)'),
+                      ),
+                      DropdownMenuItem(
+                        value: OrderSortOption.orderDateAsc,
+                        child: Text('Tgl Pesan (Terlama)'),
+                      ),
+                      DropdownMenuItem(
+                        value: OrderSortOption.customerName,
+                        child: Text('Nama Pelanggan'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() => _sortOption = value);
+                      }
                     },
                   ),
-                );
-              },
-              error: (message, code) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                    const SizedBox(height: 16),
-                    Text('Error: $message'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () =>
-                          ref.read(orderListProvider.notifier).loadPOOrders(),
-                      child: const Text('Coba Lagi'),
-                    ),
-                  ],
+                ],
+              ),
+            ),
+            // Order List
+            Expanded(
+              child: orderState.whenWithData(
+                initial: () => const Center(child: Text('Memuat data...')),
+                loading: (data) {
+                  if (data != null && data.isNotEmpty) {
+                    // Show previous data while loading
+                    return _buildOrderList(data);
+                  }
+                  return const Center(child: CircularProgressIndicator());
+                },
+                success: (orders) {
+                  if (orders.isEmpty) {
+                    return _EmptyState(selectedStatus: _selectedStatus);
+                  }
+                  return _buildOrderList(orders);
+                },
+                error: (message, code) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: AppColors.error,
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Error: $message'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () =>
+                            ref.read(orderListProvider.notifier).loadPOOrders(),
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+            // Loading More Indicator
+            if (orderState.isLoading &&
+                orderState.hasData &&
+                orderState.data!.isNotEmpty)
+              const LinearProgressIndicator(minHeight: 2),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderList(List<Order> orders) {
+    // Sort orders based on selected option
+    final sortedOrders = List<Order>.from(orders);
+    switch (_sortOption) {
+      case OrderSortOption.deliveryDateAsc:
+        sortedOrders.sort((a, b) {
+          if (a.deliveryDate == null && b.deliveryDate == null) {
+            return 0;
+          }
+          if (a.deliveryDate == null) {
+            return 1;
+          }
+          if (b.deliveryDate == null) {
+            return -1;
+          }
+          return a.deliveryDate!.compareTo(b.deliveryDate!);
+        });
+        break;
+      case OrderSortOption.deliveryDateDesc:
+        sortedOrders.sort((a, b) {
+          if (a.deliveryDate == null && b.deliveryDate == null) {
+            return 0;
+          }
+          if (a.deliveryDate == null) {
+            return 1;
+          }
+          if (b.deliveryDate == null) {
+            return -1;
+          }
+          return b.deliveryDate!.compareTo(a.deliveryDate!);
+        });
+        break;
+      case OrderSortOption.orderDateDesc:
+        sortedOrders.sort((a, b) => b.orderDate.compareTo(a.orderDate));
+        break;
+      case OrderSortOption.orderDateAsc:
+        sortedOrders.sort((a, b) => a.orderDate.compareTo(b.orderDate));
+        break;
+      case OrderSortOption.customerName:
+        sortedOrders.sort(
+          (a, b) => (a.customerName ?? '').compareTo(b.customerName ?? ''),
+        );
+        break;
+    }
+    return RefreshIndicator(
+      onRefresh: () => ref.read(orderListProvider.notifier).loadPOOrders(),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: sortedOrders.length,
+        itemBuilder: (context, index) {
+          final order = sortedOrders[index];
+          final isHighlighted = widget.highlightOrderId == order.id;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            color: isHighlighted
+                ? AppColors.primary.withValues(alpha: 0.1)
+                : null,
+            shape: isHighlighted
+                ? RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(color: AppColors.primary, width: 2),
+                  )
+                : null,
+            child: _OrderRow(
+              order: order,
+              onEdit: () => _showEditOrderDialog(context, order),
+              onStatusChange: (status) => _updateStatus(order, status),
+              onPayment: () => _showPaymentDialog(context, order),
+            ),
+          );
+        },
       ),
     );
   }

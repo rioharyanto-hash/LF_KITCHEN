@@ -9,13 +9,19 @@ class ProductRepository extends BaseRepository {
 
   static const String _tableName = 'products';
 
-  /// Ambil semua produk
-  Future<Result<List<Product>>> getAll() async {
+  /// Ambil semua produk dengan pagination
+  Future<Result<List<Product>>> getAll({
+    int page = 1,
+    int pageSize = 20,
+  }) async {
     return safeCall(() async {
+      final range = getPaginationRange(page, pageSize);
+
       final response = await client
           .from(_tableName)
           .select()
-          .order('name', ascending: true);
+          .order('name', ascending: true)
+          .range(range.start, range.end);
 
       return (response as List).map((json) => Product.fromJson(json)).toList();
     });

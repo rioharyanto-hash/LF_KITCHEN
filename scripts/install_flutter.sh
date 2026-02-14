@@ -21,6 +21,13 @@ echo "Setting up Flutter..."
 flutter config --no-analytics
 flutter doctor -v
 
+# Create .env from environment variables if missing
+if [ ! -f .env ]; then
+  echo "Generating .env file from environment variables..."
+  echo "SUPABASE_URL=$SUPABASE_URL" >> .env
+  echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY" >> .env
+fi
+
 # Install dependencies and build
 echo "Building Web App..."
 flutter pub get

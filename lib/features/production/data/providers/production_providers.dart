@@ -4,6 +4,7 @@ import '../../../../core/utils/async_state.dart';
 import '../../../../core/utils/result.dart';
 import '../../../orders/data/models/order.dart';
 import '../../../orders/data/repositories/order_repository.dart';
+import '../../../orders/domain/repositories/i_order_repository.dart';
 import '../repositories/production_repository.dart';
 
 /// Model untuk item produksi (agregasi per produk)
@@ -90,20 +91,22 @@ class ProductionState {
 
 /// Provider untuk Production
 class ProductionNotifier extends StateNotifier<AsyncState<ProductionState>> {
-  final OrderRepository _repository;
+  final IOrderRepository _repository;
 
   ProductionNotifier(this._repository) : super(const AsyncState.initial());
 
   Future<void> loadProduction() async {
     state = const AsyncState.loading();
 
-    // Calculate date range: today to next 3 days
+    // Calculate date range: overdue (last 30 days) to next 7 days
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final threeDaysLater = today.add(const Duration(days: 4)); // inclusive
+    final upcomingLimit = today.add(const Duration(days: 8)); // 7 days ahead
+    final overdueLimit = today.subtract(
+      const Duration(days: 30),
+    ); // 30 days back
 
     // Fetch orders that need production (DRAFT, CONFIRMED or PROCESSING)
-    // with delivery date within next 3 days
     final draftResult = await _repository.getAll(
       type: OrderType.po,
       status: OrderStatus.draft,
@@ -138,10 +141,8 @@ class ProductionNotifier extends StateNotifier<AsyncState<ProductionState>> {
       if (order.deliveryDate == null) {
         return true; // Include orders without date
       }
-      return order.deliveryDate!.isAfter(
-            today.subtract(const Duration(days: 1)),
-          ) &&
-          order.deliveryDate!.isBefore(threeDaysLater);
+      return order.deliveryDate!.isAfter(overdueLimit) &&
+          order.deliveryDate!.isBefore(upcomingLimit);
     }).toList();
 
     // Aggregate by product and date

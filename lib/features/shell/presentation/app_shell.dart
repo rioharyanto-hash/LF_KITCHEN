@@ -31,6 +31,9 @@ class AppShell extends StatelessWidget {
   }
 }
 
+/// Top quick navigation row for mobile to access common sections quickly
+// Top quick navigation bar removed to revert to original layout
+
 class _MobileBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

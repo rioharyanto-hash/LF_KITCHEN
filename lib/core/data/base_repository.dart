@@ -23,4 +23,12 @@ abstract class BaseRepository {
       return Failure('Terjadi kesalahan: ${e.toString()}', originalError: e);
     }
   }
+
+  /// Helper untuk mendapatkan pagination range (start, end)
+  /// page dimulai dari 1
+  ({int start, int end}) getPaginationRange(int page, int pageSize) {
+    final start = (page - 1) * pageSize;
+    final end = start + pageSize - 1;
+    return (start: start, end: end);
+  }
 }

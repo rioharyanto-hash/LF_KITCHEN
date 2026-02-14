@@ -3,36 +3,93 @@ import '../../../../core/providers/supabase_provider.dart';
 import '../../../../core/utils/async_state.dart';
 import '../../../../core/utils/result.dart';
 import '../../../production/data/repositories/production_repository.dart';
-import '../models/order.dart';
+import '../../domain/entities/order.dart';
+import '../../domain/repositories/i_order_repository.dart';
 import '../repositories/order_repository.dart';
 
 /// Provider untuk OrderRepository
-final orderRepositoryProvider = Provider<OrderRepository>((ref) {
+final orderRepositoryProvider = Provider<IOrderRepository>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return OrderRepository(client);
 });
 
 /// State Notifier untuk Orders List
 class OrderListNotifier extends StateNotifier<AsyncState<List<Order>>> {
-  final OrderRepository _repository;
+  final IOrderRepository _repository;
   final ProductionRepository? _productionRepo;
 
   // Store last filter params for refresh
   OrderType? _lastType;
   OrderStatus? _lastStatus;
 
+  // Pagination State
+  int _page = 1;
+  static const int _pageSize = 20;
+  bool _hasMore = true;
+
   OrderListNotifier(this._repository, [this._productionRepo])
     : super(const AsyncState.initial());
 
-  Future<void> loadOrders({OrderType? type, OrderStatus? status}) async {
+  Future<void> loadOrders({
+    OrderType? type,
+    OrderStatus? status,
+    bool isRefresh = false,
+  }) async {
     // Store params for refresh
     _lastType = type;
     _lastStatus = status;
 
-    state = const AsyncState.loading();
-    final result = await _repository.getAll(type: type, status: status);
+    if (isRefresh) {
+      _page = 1;
+      _hasMore = true;
+      state = state.copyWithLoading();
+    } else {
+      _page = 1;
+      _hasMore = true;
+      state = const AsyncState.loading();
+    }
+
+    final result = await _repository.getAll(
+      type: type,
+      status: status,
+      page: _page,
+      pageSize: _pageSize,
+    );
+
     result.when(
-      success: (data) => state = AsyncState.success(data),
+      success: (data) {
+        _hasMore = data.length >= _pageSize;
+        state = AsyncState.success(data);
+      },
+      failure: (message, code) =>
+          state = AsyncState.error(message, errorCode: code),
+    );
+  }
+
+  Future<void> loadMore() async {
+    if (!_hasMore || state.isLoading) return;
+
+    state = state.copyWithLoading();
+    final nextPage = _page + 1;
+
+    final result = await _repository.getAll(
+      type: _lastType,
+      status: _lastStatus,
+      page: nextPage,
+      pageSize: _pageSize,
+    );
+
+    result.when(
+      success: (newOrders) {
+        if (newOrders.length < _pageSize) {
+          _hasMore = false;
+        } else {
+          _page = nextPage;
+        }
+
+        final currentList = state.data ?? [];
+        state = AsyncState.success([...currentList, ...newOrders]);
+      },
       failure: (message, code) =>
           state = AsyncState.error(message, errorCode: code),
     );
@@ -43,17 +100,7 @@ class OrderListNotifier extends StateNotifier<AsyncState<List<Order>>> {
   }
 
   Future<void> refresh() async {
-    state = state.copyWithLoading();
-    // Use stored params to maintain filter
-    final result = await _repository.getAll(
-      type: _lastType,
-      status: _lastStatus,
-    );
-    result.when(
-      success: (data) => state = AsyncState.success(data),
-      failure: (message, code) =>
-          state = AsyncState.error(message, errorCode: code),
-    );
+    await loadOrders(type: _lastType, status: _lastStatus, isRefresh: true);
   }
 
   Future<bool> updateStatus(String id, OrderStatus status) async {
@@ -89,7 +136,7 @@ class OrderListNotifier extends StateNotifier<AsyncState<List<Order>>> {
     final result = await _repository.updatePaymentStatus(
       id,
       status,
-      dpAmount,
+      dpAmount: dpAmount,
       totalAmount: totalAmount,
       notes: notes,
       paymentMethod: paymentMethod,
@@ -144,7 +191,7 @@ class OrderFormState {
 
 /// State Notifier untuk Order Form (Create/Edit)
 class OrderFormNotifier extends StateNotifier<OrderFormState> {
-  final OrderRepository _repository;
+  final IOrderRepository _repository;
 
   OrderFormNotifier(this._repository) : super(const OrderFormState());
 

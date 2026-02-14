@@ -52,104 +52,55 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
     final orderState = ref.watch(orderListProvider);
     final purchaseState = ref.watch(purchaseListProvider);
 
-    return Scaffold(
-      body: Column(
-        children: [
-          // Header - Consistent with Dashboard
-          _buildHeader(context),
-
-          // Content
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1200),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Report Type Selector (3 types only, no Pesanan)
-                    _buildReportSelector(),
-                    const SizedBox(height: 24),
-
-                    // Report Content
-                    _buildReportContent(orderState, purchaseState),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 600;
     final dateFormat = isMobile
         ? DateFormat('dd MMM')
         : AppFormatters.dateMedium;
 
-    return Container(
-      height: 56,
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
-      decoration: BoxDecoration(color: AppColors.primary),
-      child: Row(
-        children: [
-          Text(
-            'Laporan',
-            style: TextStyle(
-              fontSize: isMobile ? 16 : 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          SizedBox(width: isMobile ? 8 : 24),
-
-          // Date Range Picker
-          Expanded(
-            child: InkWell(
-              onTap: _pickDateRange,
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: isMobile ? 8 : 12,
-                  vertical: isMobile ? 6 : 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.3),
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        title: const Text('Laporan'),
+        actions: [
+          // Date Range Picker (Custom Button in Actions)
+          InkWell(
+            onTap: _pickDateRange,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isMobile ? 8 : 12,
+                vertical: isMobile ? 6 : 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.date_range,
+                    size: isMobile ? 14 : 18,
+                    color: Colors.white,
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.date_range,
-                      size: isMobile ? 14 : 18,
+                  SizedBox(width: isMobile ? 4 : 8),
+                  Text(
+                    '${dateFormat.format(_dateRange!.start)} - ${dateFormat.format(_dateRange!.end)}',
+                    style: TextStyle(
+                      fontSize: isMobile ? 11 : 13,
                       color: Colors.white,
                     ),
-                    SizedBox(width: isMobile ? 4 : 8),
-                    Flexible(
-                      child: Text(
-                        '${dateFormat.format(_dateRange!.start)} - ${dateFormat.format(_dateRange!.end)}',
-                        style: TextStyle(
-                          fontSize: isMobile ? 11 : 13,
-                          color: Colors.white,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
+          SizedBox(width: isMobile ? 8 : 16),
 
           // Print & Export Buttons - hide on mobile
           if (!isMobile) ...[
-            const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: _printReport,
               icon: const Icon(Icons.print, size: 18, color: Colors.white),
@@ -176,24 +127,31 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
                 ),
               ),
             ),
+            const SizedBox(width: 8),
           ],
-          SizedBox(width: isMobile ? 4 : 8),
 
-          // Refresh
-          SizedBox(
-            width: isMobile ? 32 : 40,
-            height: isMobile ? 32 : 40,
-            child: IconButton(
-              icon: Icon(
-                Icons.refresh,
-                color: Colors.white,
-                size: isMobile ? 18 : 24,
-              ),
-              padding: EdgeInsets.zero,
-              onPressed: _loadData,
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1200),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Report Type Selector (3 types only, no Pesanan)
+                _buildReportSelector(),
+                const SizedBox(height: 24),
+
+                // Report Content
+                _buildReportContent(orderState, purchaseState),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -267,7 +225,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
               orderDate.isBefore(
                 _dateRange!.end.add(const Duration(days: 1)),
               ) &&
-              o.status == OrderStatus.completed;
+              (o.status == OrderStatus.completed ||
+                  o.status == OrderStatus.confirmed ||
+                  o.status == OrderStatus.processing ||
+                  o.status == OrderStatus.ready);
         }).toList();
 
         final totalSales = filteredOrders.fold<double>(
@@ -455,7 +416,10 @@ class _ReportsPageState extends ConsumerState<ReportsPage> {
       loading: () {},
       success: (orders) {
         for (final o in orders) {
-          if (o.status == OrderStatus.completed &&
+          if ((o.status == OrderStatus.completed ||
+                  o.status == OrderStatus.confirmed ||
+                  o.status == OrderStatus.processing ||
+                  o.status == OrderStatus.ready) &&
               o.orderDate.isAfter(
                 _dateRange!.start.subtract(const Duration(days: 1)),
               ) &&

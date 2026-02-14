@@ -1,21 +1,26 @@
 import '../../../../core/data/base_repository.dart';
 import '../../../../core/services/invoice_number_service.dart';
 import '../../../../core/utils/result.dart';
-import '../models/order.dart';
+import '../../domain/entities/order.dart';
+import '../../domain/repositories/i_order_repository.dart';
+import '../models/order_model.dart';
 
 /// Repository untuk operasi CRUD Order
-class OrderRepository extends BaseRepository {
+class OrderRepository extends BaseRepository implements IOrderRepository {
   OrderRepository(super.client);
 
   static const String _tableName = 'orders';
   static const String _itemsTable = 'order_items';
 
   /// Ambil semua orders dengan join ke customers
+  @override
   Future<Result<List<Order>>> getAll({
     OrderType? type,
     OrderStatus? status,
     DateTime? fromDate,
     DateTime? toDate,
+    int page = 1,
+    int pageSize = 20,
   }) async {
     return safeCall(() async {
       var query = client
@@ -37,13 +42,19 @@ class OrderRepository extends BaseRepository {
         query = query.lte('order_date', toDate.toIso8601String());
       }
 
-      final response = await query.order('order_date', ascending: false);
+      final range = getPaginationRange(page, pageSize);
+      final response = await query
+          .order('order_date', ascending: false)
+          .range(range.start, range.end);
 
-      return (response as List).map((json) => Order.fromJson(json)).toList();
+      return (response as List)
+          .map((json) => OrderModel.fromJson(json))
+          .toList();
     });
   }
 
   /// Ambil orders untuk hari ini
+  @override
   Future<Result<List<Order>>> getTodayOrders() async {
     final today = DateTime.now();
     final startOfDay = DateTime(today.year, today.month, today.day);
@@ -53,6 +64,7 @@ class OrderRepository extends BaseRepository {
   }
 
   /// Ambil orders yang siap diambil (delivery_date = hari ini, status = READY)
+  @override
   Future<Result<List<Order>>> getReadyForPickup() async {
     return safeCall(() async {
       final today = DateTime.now();
@@ -69,11 +81,14 @@ class OrderRepository extends BaseRepository {
           .eq('status', 'READY')
           .order('created_at', ascending: true);
 
-      return (response as List).map((json) => Order.fromJson(json)).toList();
+      return (response as List)
+          .map((json) => OrderModel.fromJson(json))
+          .toList();
     });
   }
 
   /// Ambil order berdasarkan ID dengan items
+  @override
   Future<Result<Order>> getById(String id) async {
     return safeCall(() async {
       final response = await client
@@ -82,17 +97,21 @@ class OrderRepository extends BaseRepository {
           .eq('id', id)
           .single();
 
-      return Order.fromJson(response);
+      return OrderModel.fromJson(response);
     });
   }
 
   /// Buat order baru dengan items
+  @override
   Future<Result<Order>> create(Order order, List<OrderItem> items) async {
     return safeCall(() async {
+      // Convert to Model for methods
+      final orderModel = OrderModel.fromEntity(order);
+
       // Insert order
       final orderResponse = await client
           .from(_tableName)
-          .insert(order.toInsertJson())
+          .insert(orderModel.toInsertJson())
           .select()
           .single();
 
@@ -101,7 +120,8 @@ class OrderRepository extends BaseRepository {
       // Insert order items
       if (items.isNotEmpty) {
         final itemsJson = items.map((item) {
-          final json = item.toInsertJson();
+          final itemModel = OrderItemModel.fromEntity(item);
+          final json = itemModel.toInsertJson();
           json['order_id'] = orderId;
           return json;
         }).toList();
@@ -116,12 +136,16 @@ class OrderRepository extends BaseRepository {
 
   /// Update order with items
   /// If items is null, only updates order details
+  @override
   Future<Result<Order>> update(Order order, [List<OrderItem>? items]) async {
     return safeCall(() async {
+      // Convert to Model
+      final orderModel = OrderModel.fromEntity(order);
+
       // 1. Update order details
       await client
           .from(_tableName)
-          .update(order.toInsertJson())
+          .update(orderModel.toInsertJson())
           .eq('id', order.id);
 
       // 2. Update items if provided
@@ -134,7 +158,8 @@ class OrderRepository extends BaseRepository {
 
         final existingMap = <String, Map<String, dynamic>>{};
         for (final item in existingItems as List) {
-          final key = (item['product_id'] as String?) ?? item['product_name'] as String;
+          final key =
+              (item['product_id'] as String?) ?? item['product_name'] as String;
           existingMap[key] = item as Map<String, dynamic>;
         }
 
@@ -142,12 +167,13 @@ class OrderRepository extends BaseRepository {
         final processedKeys = <String>{};
 
         for (final item in items) {
+          final itemModel = OrderItemModel.fromEntity(item);
           final key = item.productId ?? item.productName ?? '';
-          
+
           if (existingMap.containsKey(key)) {
             // Update existing item (preserves id and produced_qty)
             final existing = existingMap[key]!;
-            final updateJson = item.toInsertJson();
+            final updateJson = itemModel.toInsertJson();
             await client
                 .from(_itemsTable)
                 .update(updateJson)
@@ -155,14 +181,16 @@ class OrderRepository extends BaseRepository {
             processedKeys.add(key);
           } else {
             // Insert new item
-            final insertJson = item.toInsertJson();
+            final insertJson = itemModel.toInsertJson();
             insertJson['order_id'] = order.id;
             await client.from(_itemsTable).insert(insertJson);
           }
         }
 
         // Delete items that are no longer in the list
-        final keysToDelete = existingMap.keys.where((k) => !processedKeys.contains(k));
+        final keysToDelete = existingMap.keys.where(
+          (k) => !processedKeys.contains(k),
+        );
         for (final key in keysToDelete) {
           await client
               .from(_itemsTable)
@@ -176,6 +204,7 @@ class OrderRepository extends BaseRepository {
   }
 
   /// Update status order (generates receipt_number on first confirm)
+  @override
   Future<Result<void>> updateStatus(String id, OrderStatus status) async {
     return safeCall(() async {
       final updates = <String, dynamic>{'status': status.name.toUpperCase()};
@@ -240,10 +269,11 @@ class OrderRepository extends BaseRepository {
   }
 
   /// Update payment status
+  @override
   Future<Result<void>> updatePaymentStatus(
     String id,
-    PaymentStatus status,
-    double? dpAmount, {
+    PaymentStatus status, {
+    double? dpAmount,
     double? totalAmount,
     String? notes,
     // New field
@@ -270,6 +300,7 @@ class OrderRepository extends BaseRepository {
   }
 
   /// Update shipping cost
+  @override
   Future<Result<void>> updateShipping(String id, double shippingCost) async {
     return safeCall(() async {
       await client
@@ -280,6 +311,7 @@ class OrderRepository extends BaseRepository {
   }
 
   /// Hapus order
+  @override
   Future<Result<void>> delete(String id) async {
     return safeCall(() async {
       await client.from(_tableName).delete().eq('id', id);
@@ -287,6 +319,7 @@ class OrderRepository extends BaseRepository {
   }
 
   /// Hitung total penjualan hari ini
+  @override
   Future<Result<double>> getTodaySalesTotal() async {
     return safeCall(() async {
       final today = DateTime.now();
@@ -311,6 +344,7 @@ class OrderRepository extends BaseRepository {
   }
 
   /// Hitung jumlah PO pending
+  @override
   Future<Result<int>> getPendingPOCount() async {
     return safeCall(() async {
       final response = await client

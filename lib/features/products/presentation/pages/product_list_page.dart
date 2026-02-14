@@ -47,78 +47,116 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Cari produk...',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          ref.read(productListProvider.notifier).loadProducts();
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                ref.read(productListProvider.notifier).searchProducts(value);
-              },
-            ),
-          ),
-          // Product List/Grid
-          Expanded(
-            child: productState.when(
-              initial: () => const Center(child: Text('Memuat data...')),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              success: (products) {
-                if (products.isEmpty) {
-                  return _EmptyState(
-                    onAddProduct: () => _showAddProductDialog(context),
-                  );
-                }
-                return RefreshIndicator(
-                  onRefresh: () =>
-                      ref.read(productListProvider.notifier).refresh(),
-                  child: isDesktop
-                      ? _ProductGrid(
-                          products: products,
-                          onDelete: _deleteProduct,
-                          onEdit: (p) => _showEditProductDialog(context, p),
+      body: NotificationListener<ScrollNotification>(
+        onNotification: (scrollInfo) {
+          if (scrollInfo.metrics.pixels >=
+                  scrollInfo.metrics.maxScrollExtent - 200 &&
+              scrollInfo.metrics.axis == Axis.vertical) {
+            ref.read(productListProvider.notifier).loadMore();
+          }
+          return false;
+        },
+        child: Column(
+          children: [
+            // Search Bar
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Cari produk...',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear),
+                          onPressed: () {
+                            _searchController.clear();
+                            ref
+                                .read(productListProvider.notifier)
+                                .loadProducts();
+                          },
                         )
-                      : _ProductList(
-                          products: products,
-                          onDelete: _deleteProduct,
-                          onEdit: (p) => _showEditProductDialog(context, p),
-                        ),
-                );
-              },
-              error: (message, code) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                    const SizedBox(height: 16),
-                    Text('Error: $message'),
-                    if (code != null) Text('Code: $code'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () =>
-                          ref.read(productListProvider.notifier).loadProducts(),
-                      child: const Text('Coba Lagi'),
-                    ),
-                  ],
+                      : null,
+                ),
+                onChanged: (value) {
+                  ref.read(productListProvider.notifier).searchProducts(value);
+                },
+              ),
+            ),
+            // Product List/Grid
+            Expanded(
+              child: productState.whenWithData(
+                initial: () => const Center(child: Text('Memuat data...')),
+                loading: (data) {
+                  if (data != null && data.isNotEmpty) {
+                    // Show previous data while loading
+                    return isDesktop
+                        ? _ProductGrid(
+                            products: data,
+                            onDelete: _deleteProduct,
+                            onEdit: (p) => _showEditProductDialog(context, p),
+                          )
+                        : _ProductList(
+                            products: data,
+                            onDelete: _deleteProduct,
+                            onEdit: (p) => _showEditProductDialog(context, p),
+                          );
+                  }
+                  return const Center(child: CircularProgressIndicator());
+                },
+                success: (products) {
+                  if (products.isEmpty) {
+                    return _EmptyState(
+                      onAddProduct: () => _showAddProductDialog(context),
+                    );
+                  }
+                  return RefreshIndicator(
+                    onRefresh: () =>
+                        ref.read(productListProvider.notifier).refresh(),
+                    child: isDesktop
+                        ? _ProductGrid(
+                            products: products,
+                            onDelete: _deleteProduct,
+                            onEdit: (p) => _showEditProductDialog(context, p),
+                          )
+                        : _ProductList(
+                            products: products,
+                            onDelete: _deleteProduct,
+                            onEdit: (p) => _showEditProductDialog(context, p),
+                          ),
+                  );
+                },
+                error: (message, code) => Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: AppColors.error,
+                      ),
+                      const SizedBox(height: 16),
+                      Text('Error: $message'),
+                      if (code != null) Text('Code: $code'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => ref
+                            .read(productListProvider.notifier)
+                            .loadProducts(),
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+            // Loading More Indicator
+            if (productState.isLoading &&
+                productState.hasData &&
+                productState.data!.isNotEmpty)
+              const LinearProgressIndicator(minHeight: 2),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showAddProductDialog(context),

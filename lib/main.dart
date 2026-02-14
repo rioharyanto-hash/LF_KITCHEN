@@ -10,8 +10,13 @@ import 'core/router/app_router.dart';
 import 'core/widgets/state_widgets.dart';
 import 'core/providers/theme_provider.dart';
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
 
   // Initialize locale data for Indonesian
   await initializeDateFormatting('id_ID', null);

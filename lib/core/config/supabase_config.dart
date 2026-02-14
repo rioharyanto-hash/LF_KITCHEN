@@ -1,11 +1,13 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 /// Konstanta untuk environment Supabase
 class SupabaseConfig {
-  static const String supabaseUrl = 'https://srbsiligtgvftjhggatw.supabase.co';
-  static const String supabaseAnonKey =
-      'sb_publishable_RNqhJ0iz_WGeuRZFYFfR2A_nzVbJNGd';
+  static String get supabaseUrl => dotenv.env['SUPABASE_URL'] ?? '';
+  static String get supabaseAnonKey => dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
   /// Cek apakah config sudah diisi
   static bool get isConfigured =>
-      supabaseUrl != 'YOUR_SUPABASE_URL' &&
-      supabaseAnonKey != 'YOUR_SUPABASE_ANON_KEY';
+      supabaseUrl.isNotEmpty &&
+      supabaseAnonKey.isNotEmpty &&
+      supabaseUrl != 'YOUR_SUPABASE_URL';
 }

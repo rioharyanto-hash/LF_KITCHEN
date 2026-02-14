@@ -67,64 +67,15 @@ class _ProductionDashboardPageState
     final productionState = ref.watch(productionProvider);
 
     return Scaffold(
-      body: Column(
-        children: [
-          // Header - Consistent with Dashboard
-          _buildHeader(context),
-
-          // Content
-          Expanded(
-            child: productionState.when(
-              initial: () => const Center(child: Text('Memuat data...')),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              success: (data) => _buildContent(context, data),
-              error: (message, code) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error_outline, size: 48, color: AppColors.error),
-                    const SizedBox(height: 16),
-                    Text('Error: $message'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref
-                          .read(productionProvider.notifier)
-                          .loadProduction(),
-                      child: const Text('Coba Lagi'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 600;
-
-    return Container(
-      height: 56,
-      padding: EdgeInsets.symmetric(horizontal: isMobile ? 12 : 24),
-      decoration: BoxDecoration(color: AppColors.primary),
-      child: Row(
-        children: [
-          Text(
-            'Produksi',
-            style: TextStyle(
-              fontSize: isMobile ? 16 : 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-
-          const Spacer(),
-
+      appBar: AppBar(
+        backgroundColor: AppColors.primary,
+        foregroundColor: Colors.white,
+        title: const Text('Produksi'),
+        actions: [
           // Group By Dropdown
           Container(
-            padding: EdgeInsets.symmetric(horizontal: isMobile ? 8 : 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.15),
               border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
@@ -136,7 +87,7 @@ class _ProductionDashboardPageState
                 isDense: true,
                 icon: Icon(
                   Icons.keyboard_arrow_down,
-                  size: isMobile ? 16 : 18,
+                  size: MediaQuery.of(context).size.width < 600 ? 16 : 18,
                   color: Colors.white,
                 ),
                 dropdownColor: AppColors.primary,
@@ -151,7 +102,9 @@ class _ProductionDashboardPageState
                         Text(
                           group.label,
                           style: TextStyle(
-                            fontSize: isMobile ? 11 : 13,
+                            fontSize: MediaQuery.of(context).size.width < 600
+                                ? 11
+                                : 13,
                             color: Colors.white,
                           ),
                         ),
@@ -167,10 +120,8 @@ class _ProductionDashboardPageState
               ),
             ),
           ),
-          SizedBox(width: isMobile ? 4 : 8),
 
-          // Print Button - hide on mobile
-          if (!isMobile) ...[
+          if (MediaQuery.of(context).size.width >= 600) ...[
             OutlinedButton.icon(
               onPressed: _printProduction,
               icon: const Icon(Icons.print, size: 18, color: Colors.white),
@@ -186,22 +137,34 @@ class _ProductionDashboardPageState
             const SizedBox(width: 8),
           ],
 
-          // Refresh
-          SizedBox(
-            width: isMobile ? 32 : 40,
-            height: isMobile ? 32 : 40,
-            child: IconButton(
-              icon: Icon(
-                Icons.refresh,
-                color: Colors.white,
-                size: isMobile ? 18 : 24,
-              ),
-              padding: EdgeInsets.zero,
-              onPressed: () =>
-                  ref.read(productionProvider.notifier).loadProduction(),
-            ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () =>
+                ref.read(productionProvider.notifier).loadProduction(),
           ),
+          const SizedBox(width: 8),
         ],
+      ),
+      body: productionState.when(
+        initial: () => const Center(child: Text('Memuat data...')),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        success: (data) => _buildContent(context, data),
+        error: (message, code) => Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 48, color: AppColors.error),
+              const SizedBox(height: 16),
+              Text('Error: $message'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () =>
+                    ref.read(productionProvider.notifier).loadProduction(),
+                child: const Text('Coba Lagi'),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -759,10 +722,7 @@ class _QuickAddButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
 
-  const _QuickAddButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _QuickAddButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
