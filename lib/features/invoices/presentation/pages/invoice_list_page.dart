@@ -18,6 +18,9 @@ class InvoiceListPage extends ConsumerStatefulWidget {
 
 class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
   InvoiceStatus? _selectedStatus;
+  DateTimeRange? _selectedDateRange;
+  String _sortBy = 'created_at';
+  bool _ascending = false;
 
   @override
   void initState() {
@@ -35,11 +38,39 @@ class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
       appBar: AppBar(
         title: const Text('Tagihan'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () =>
-                ref.read(invoiceListProvider.notifier).loadInvoices(),
+          // Sort Button
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Urutkan',
+            onSelected: (value) {
+              setState(() {
+                if (_sortBy == value) {
+                  _ascending = !_ascending;
+                } else {
+                  _sortBy = value;
+                  _ascending =
+                      (value == 'customer_name'); // Default A-Z for name
+                }
+              });
+              _loadInvoices();
+            },
+            itemBuilder: (context) => [
+              _buildSortItem('created_at', 'Tanggal Dibuat'),
+              _buildSortItem('due_date', 'Jatuh Tempo'),
+              _buildSortItem('total_amount', 'Total Tagihan'),
+              _buildSortItem('customer_name', 'Nama Pelanggan'),
+            ],
           ),
+          // Date Filter
+          IconButton(
+            icon: Icon(
+              Icons.calendar_month,
+              color: _selectedDateRange != null ? AppColors.primary : null,
+            ),
+            tooltip: 'Filter Tanggal',
+            onPressed: _pickDateRange,
+          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadInvoices),
         ],
       ),
       body: Column(
@@ -47,11 +78,14 @@ class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
           // Filter Chips
           _FilterChips(
             selectedStatus: _selectedStatus,
+            selectedDateRange: _selectedDateRange,
             onStatusChanged: (status) {
               setState(() => _selectedStatus = status);
-              ref
-                  .read(invoiceListProvider.notifier)
-                  .loadInvoices(status: status);
+              _loadInvoices();
+            },
+            onClearDate: () {
+              setState(() => _selectedDateRange = null);
+              _loadInvoices();
             },
           ),
           // Invoice List
@@ -183,15 +217,71 @@ class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
       ),
     );
   }
+
+  PopupMenuItem<String> _buildSortItem(String value, String label) {
+    final isSelected = _sortBy == value;
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? AppColors.primary : null,
+                fontWeight: isSelected ? FontWeight.bold : null,
+              ),
+            ),
+          ),
+          if (isSelected)
+            Icon(
+              _ascending ? Icons.arrow_upward : Icons.arrow_downward,
+              size: 16,
+              color: AppColors.primary,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickDateRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDateRange: _selectedDateRange,
+    );
+
+    if (picked != null) {
+      setState(() => _selectedDateRange = picked);
+      _loadInvoices();
+    }
+  }
+
+  void _loadInvoices() {
+    ref
+        .read(invoiceListProvider.notifier)
+        .loadInvoices(
+          status: _selectedStatus,
+          startDate: _selectedDateRange?.start,
+          endDate: _selectedDateRange?.end,
+          sortBy: _sortBy,
+          ascending: _ascending,
+        );
+  }
 }
 
 class _FilterChips extends StatelessWidget {
   final InvoiceStatus? selectedStatus;
+  final DateTimeRange? selectedDateRange;
   final Function(InvoiceStatus?) onStatusChanged;
+  final VoidCallback onClearDate;
 
   const _FilterChips({
     required this.selectedStatus,
+    required this.selectedDateRange,
     required this.onStatusChanged,
+    required this.onClearDate,
   });
 
   @override
@@ -202,6 +292,20 @@ class _FilterChips extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
+            if (selectedDateRange != null) ...[
+              InputChip(
+                label: Text(
+                  '${DateFormat('dd MMM').format(selectedDateRange!.start)} - ${DateFormat('dd MMM').format(selectedDateRange!.end)}',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                selected: true,
+                onDeleted: onClearDate,
+                selectedColor: AppColors.primary.withValues(alpha: 0.1),
+                labelStyle: TextStyle(color: AppColors.primary),
+                deleteIconColor: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+            ],
             _buildChip(context, null, 'Semua'),
             const SizedBox(width: 8),
             _buildChip(context, InvoiceStatus.unpaid, 'Belum Lunas'),

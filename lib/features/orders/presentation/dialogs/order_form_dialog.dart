@@ -111,6 +111,24 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Order Date (Moved to Top)
+                Text(
+                  'Tanggal Pesanan',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: _selectOrderDate,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.calendar_today),
+                      isDense: true,
+                    ),
+                    child: Text(DateFormat('dd MMM yyyy').format(_orderDate)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Customer Selection
                 Text(
                   'Pelanggan',
@@ -241,67 +259,32 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
                 const SizedBox(height: 16),
 
                 // Order Date & Delivery Date Row
-                Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tanggal Pesanan',
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: _selectOrderDate,
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.calendar_today),
-                                isDense: true,
-                              ),
-                              child: Text(
-                                DateFormat('dd MMM yyyy').format(_orderDate),
-                              ),
-                            ),
-                          ),
-                        ],
+                const SizedBox(height: 16),
+
+                // Pickup Date
+                Text(
+                  'Tanggal Pengambilan',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: _selectDeliveryDate,
+                  child: InputDecorator(
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.event),
+                      isDense: true,
+                    ),
+                    child: Text(
+                      _deliveryDate != null
+                          ? DateFormat('dd MMM yyyy').format(_deliveryDate!)
+                          : 'Pilih Tanggal',
+                      style: TextStyle(
+                        color: _deliveryDate != null
+                            ? null
+                            : Colors.grey.shade600,
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Tanggal Pengambilan',
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: _selectDeliveryDate,
-                            child: InputDecorator(
-                              decoration: const InputDecoration(
-                                prefixIcon: Icon(Icons.event),
-                                isDense: true,
-                              ),
-                              child: Text(
-                                _deliveryDate != null
-                                    ? DateFormat(
-                                        'dd MMM yyyy',
-                                      ).format(_deliveryDate!)
-                                    : 'Pilih Tanggal',
-                                style: TextStyle(
-                                  color: _deliveryDate != null
-                                      ? null
-                                      : Colors.grey.shade600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -448,7 +431,7 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
     final date = await showDatePicker(
       context: context,
       initialDate: _orderDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 30)),
+      firstDate: DateTime(2020), // Allow past dates
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (date != null) {
@@ -459,8 +442,8 @@ class _OrderFormDialogState extends ConsumerState<OrderFormDialog> {
   Future<void> _selectDeliveryDate() async {
     final date = await showDatePicker(
       context: context,
-      initialDate: _deliveryDate ?? DateTime.now().add(const Duration(days: 1)),
-      firstDate: DateTime.now(),
+      initialDate: _deliveryDate ?? DateTime.now(),
+      firstDate: DateTime(2020), // Remove restriction, allow past dates
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (date != null) {

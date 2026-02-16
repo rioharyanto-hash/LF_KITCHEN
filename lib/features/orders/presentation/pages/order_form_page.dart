@@ -32,6 +32,7 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
   // Composite items (for Paketan/SnackBox with null productId)
   final List<OrderItem> _compositeItems = [];
   Customer? _selectedCustomer;
+  DateTime? _orderDate;
   DateTime? _deliveryDate;
   final _dpController = TextEditingController(text: '0');
   final _notesController = TextEditingController();
@@ -77,6 +78,7 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
 
         if (mounted) {
           setState(() {
+            _orderDate = order.orderDate;
             _deliveryDate = order.deliveryDate;
             _dpController.text = order.dpAmount.toStringAsFixed(0);
             _notesController.text = order.notes ?? '';
@@ -127,6 +129,11 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
               _compositeItems.addAll(composites);
             });
           }
+        }
+      } else {
+        // New order
+        if (mounted) {
+          setState(() => _orderDate = DateTime.now());
         }
       }
     });
@@ -398,7 +405,20 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
           _buildCustomerDropdown(),
           const SizedBox(height: 16),
 
-          // Date picker
+          // Date pickers
+          const Text(
+            'TANGGAL PESANAN *',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 11,
+              color: Colors.grey,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 6),
+          _buildOrderDatePicker(),
+          const SizedBox(height: 16),
+
           const Text(
             'TANGGAL AMBIL *',
             style: TextStyle(
@@ -824,7 +844,20 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
               _buildCustomerDropdown(),
               const SizedBox(height: 16),
 
-              // Delivery Date
+              // Date Pickers
+              const Text(
+                'TANGGAL PESANAN *',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: Colors.grey,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _buildOrderDatePicker(),
+              const SizedBox(height: 16),
+
               const Text(
                 'TANGGAL AMBIL *',
                 style: TextStyle(
@@ -1104,6 +1137,41 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
         );
   }
 
+  Widget _buildOrderDatePicker() {
+    return InkWell(
+      onTap: () async {
+        final date = await showDatePicker(
+          context: context,
+          initialDate: _orderDate ?? DateTime.now(),
+          firstDate: DateTime(2020),
+          lastDate: DateTime.now().add(const Duration(days: 365)),
+        );
+        if (date != null) {
+          setState(() => _orderDate = date);
+        }
+      },
+      child: InputDecorator(
+        decoration: InputDecoration(
+          hintText: 'Pilih tanggal pesanan',
+          prefixIcon: Icon(Icons.calendar_today, color: AppColors.primary),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 12,
+          ),
+        ),
+        child: Text(
+          _orderDate != null
+              ? DateFormat('EEEE, dd MMM yyyy', 'id_ID').format(_orderDate!)
+              : 'Pilih tanggal pesanan',
+          style: TextStyle(
+            color: _orderDate != null ? Colors.black : Colors.grey,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildDatePicker() {
     return InkWell(
       onTap: () async {
@@ -1111,7 +1179,7 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
           context: context,
           initialDate:
               _deliveryDate ?? DateTime.now().add(const Duration(days: 1)),
-          firstDate: DateTime.now(),
+          firstDate: DateTime(2020), // Remove restriction
           lastDate: DateTime.now().add(const Duration(days: 365)),
         );
         if (date != null) {
@@ -1439,7 +1507,7 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
         id: widget.order?.id ?? '',
         customerId: _selectedCustomer!.id,
         customerName: _selectedCustomer!.name,
-        orderDate: DateTime.now(),
+        orderDate: _orderDate ?? DateTime.now(),
         deliveryDate: _deliveryDate,
         orderType: OrderType.po,
         status: OrderStatus.draft,

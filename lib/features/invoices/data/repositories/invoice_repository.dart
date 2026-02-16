@@ -9,10 +9,14 @@ class InvoiceRepository extends BaseRepository {
 
   InvoiceRepository(super.client);
 
-  /// Get all invoices with optional filters
+  /// Get all invoices with optional filters and sorting
   Future<Result<List<Invoice>>> getAll({
     InvoiceStatus? status,
     String? customerId,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? sortBy,
+    bool ascending = false,
   }) async {
     return safeCall(() async {
       var query = client
@@ -27,7 +31,26 @@ class InvoiceRepository extends BaseRepository {
         query = query.eq('customer_id', customerId);
       }
 
-      final response = await query.order('created_at', ascending: false);
+      if (startDate != null) {
+        query = query.gte('created_at', startDate.toIso8601String());
+      }
+
+      if (endDate != null) {
+        // Add 1 day to include the end date fully
+        final nextDay = endDate.add(const Duration(days: 1));
+        query = query.lt('created_at', nextDay.toIso8601String());
+      }
+
+      // Sorting
+      final sortedQuery = sortBy == 'customer_name'
+          ? query.order(
+              'name',
+              referencedTable: 'customers',
+              ascending: ascending,
+            )
+          : query.order(sortBy ?? 'created_at', ascending: ascending);
+
+      final response = await sortedQuery;
 
       return (response as List).map((json) => Invoice.fromJson(json)).toList();
     });

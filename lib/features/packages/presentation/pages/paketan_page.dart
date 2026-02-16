@@ -26,6 +26,7 @@ class PaketanPage extends ConsumerStatefulWidget {
 class _PaketanPageState extends ConsumerState<PaketanPage> {
   final List<_SelectedProduct> _selectedProducts = [];
   Customer? _selectedCustomer;
+  DateTime _orderDate = DateTime.now();
   DateTime? _deliveryDate;
   final _packageNameController = TextEditingController(text: 'Paket');
   final _packagingPriceController = TextEditingController(text: '0');
@@ -494,8 +495,6 @@ class _PaketanPageState extends ConsumerState<PaketanPage> {
                   const SizedBox(height: 16),
 
                   // Date
-                  _buildSectionLabel('TANGGAL AMBIL'),
-                  const SizedBox(height: 6),
                   _buildDatePicker(),
                   const SizedBox(height: 16),
 
@@ -567,8 +566,6 @@ class _PaketanPageState extends ConsumerState<PaketanPage> {
           _buildCustomerDropdown(),
           const SizedBox(height: 16),
 
-          _buildSectionLabel('TANGGAL AMBIL'),
-          const SizedBox(height: 6),
           _buildDatePicker(),
           const SizedBox(height: 16),
 
@@ -653,34 +650,74 @@ class _PaketanPageState extends ConsumerState<PaketanPage> {
     );
   }
 
+  Future<void> _selectOrderDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _orderDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date != null) setState(() => _orderDate = date);
+  }
+
   Widget _buildDatePicker() {
-    return InkWell(
-      onTap: () async {
-        final date = await showDatePicker(
-          context: context,
-          initialDate:
-              _deliveryDate ?? DateTime.now().add(const Duration(days: 1)),
-          firstDate: DateTime.now(),
-          lastDate: DateTime.now().add(const Duration(days: 365)),
-        );
-        if (date != null) setState(() => _deliveryDate = date);
-      },
-      child: InputDecorator(
-        decoration: InputDecoration(
-          hintText: 'Pilih tanggal',
-          prefixIcon: Icon(Icons.event, color: AppColors.primary),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          isDense: true,
-        ),
-        child: Text(
-          _deliveryDate != null
-              ? DateFormat('EEEE, dd MMM yyyy', 'id_ID').format(_deliveryDate!)
-              : 'Pilih tanggal pengambilan',
-          style: TextStyle(
-            color: _deliveryDate != null ? Colors.black : Colors.grey,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionLabel('TANGGAL PESANAN'),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: _selectOrderDate,
+          child: InputDecorator(
+            decoration: InputDecoration(
+              prefixIcon: Icon(Icons.calendar_today, color: AppColors.primary),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              isDense: true,
+            ),
+            child: Text(
+              DateFormat('dd MMM yyyy', 'id_ID').format(_orderDate),
+              style: const TextStyle(color: Colors.black),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 16),
+        _buildSectionLabel('TANGGAL AMBIL'),
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: () async {
+            final date = await showDatePicker(
+              context: context,
+              initialDate: _deliveryDate ?? DateTime.now(),
+              firstDate: DateTime(2020), // Unrestricted
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+            );
+            if (date != null) setState(() => _deliveryDate = date);
+          },
+          child: InputDecorator(
+            decoration: InputDecoration(
+              hintText: 'Pilih tanggal',
+              prefixIcon: Icon(Icons.event, color: AppColors.primary),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              isDense: true,
+            ),
+            child: Text(
+              _deliveryDate != null
+                  ? DateFormat(
+                      'EEEE, dd MMM yyyy',
+                      'id_ID',
+                    ).format(_deliveryDate!)
+                  : 'Pilih tanggal pengambilan',
+              style: TextStyle(
+                color: _deliveryDate != null ? Colors.black : Colors.grey,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -17,9 +17,21 @@ class InvoiceListNotifier extends StateNotifier<AsyncState<List<Invoice>>> {
 
   InvoiceListNotifier(this._repository) : super(const AsyncState.initial());
 
-  Future<void> loadInvoices({InvoiceStatus? status}) async {
+  Future<void> loadInvoices({
+    InvoiceStatus? status,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? sortBy,
+    bool ascending = false,
+  }) async {
     state = const AsyncState.loading();
-    final result = await _repository.getAll(status: status);
+    final result = await _repository.getAll(
+      status: status,
+      startDate: startDate,
+      endDate: endDate,
+      sortBy: sortBy,
+      ascending: ascending,
+    );
     result.when(
       success: (data) => state = AsyncState.success(data),
       failure: (msg, code) => state = AsyncState.error(msg),

@@ -57,8 +57,9 @@ Fitur utama yang sudah tersedia:
 ---
 
 ## 💡 Ide Fitur Masa Depan
-- Resep produksi dengan kalkulasi bahan
-- Kalender produksi
+### v1.6.0 - Produksi & HPP
+- [ ] Resep produksi dengan kalkulasi bahan (HPP)
+- [ ] Kalender produksi
 - Preorder dengan deposit otomatis
 - Loyalty program pelanggan
 - Katalog online untuk pelanggan
