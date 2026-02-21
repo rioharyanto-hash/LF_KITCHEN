@@ -39,10 +39,22 @@ class _PurchaseListPageState extends ConsumerState<PurchaseListPage> {
       appBar: AppBar(
         title: const Text('Pembelian Bahan'),
         actions: [
+          FilledButton.icon(
+            onPressed: () => _showAddPurchaseDialog(context),
+            icon: const Icon(Icons.add_circle, size: 22),
+            label: const Text('Catat Pembelian'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () =>
                 ref.read(purchaseListProvider.notifier).loadPurchases(),
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -83,11 +95,6 @@ class _PurchaseListPageState extends ConsumerState<PurchaseListPage> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddPurchaseDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Catat Pembelian'),
       ),
     );
   }

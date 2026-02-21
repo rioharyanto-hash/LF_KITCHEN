@@ -41,9 +41,15 @@ class _CustomerListPageState extends ConsumerState<CustomerListPage> {
         title: const Text('Pelanggan'),
         actions: [
           IconButton(
+            onPressed: () => _showAddCustomerDialog(context),
+            icon: const Icon(Icons.person_add_outlined),
+            tooltip: 'Tambah Pelanggan',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () =>
                 ref.read(customerListProvider.notifier).loadCustomers(),
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -121,11 +127,6 @@ class _CustomerListPageState extends ConsumerState<CustomerListPage> {
             ),
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddCustomerDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Tambah Pelanggan'),
       ),
     );
   }

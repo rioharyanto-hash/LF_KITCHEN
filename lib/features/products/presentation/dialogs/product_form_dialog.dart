@@ -11,8 +11,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_toast.dart';
 import '../../../categories/data/providers/category_providers.dart';
 import '../../../settings/data/providers/product_settings_provider.dart';
+import '../../../../core/utils/result.dart';
 import '../../data/models/product.dart';
 import '../../data/providers/product_providers.dart';
+import '../../domain/entities/recipe.dart';
+import '../../data/providers/recipe_providers.dart';
+import '../../../purchasing/data/providers/purchase_providers.dart';
+import '../../../purchasing/data/models/raw_material.dart';
 
 /// Product Form Dialog for Create/Edit - Premium Design
 class ProductFormDialog extends ConsumerStatefulWidget {
@@ -33,6 +38,7 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
   final _specialPriceController = TextEditingController();
   final _costController = TextEditingController();
   final _stockController = TextEditingController();
+  final _yieldController = TextEditingController(text: '1');
 
   String? _selectedCategory;
   String? _selectedProductType;
@@ -40,6 +46,10 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
   String? _selectedSize;
   bool _isLoading = false;
   bool get _isEditing => widget.product != null;
+
+  // Recipe State
+  List<RecipeItem> _recipeItems = [];
+  double _estimatedHpp = 0;
 
   // Image handling
   String? _imageUrl;
@@ -64,14 +74,62 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
       _selectedCategory = widget.product!.category;
       _selectedProductType = widget.product!.productType;
       _selectedUnit = widget.product!.unit ?? 'pcs';
+      _yieldController.text = widget.product!.recipeYield.toString();
     } else {
       _selectedUnit = 'pcs';
       _stockController.text = '0';
+      _yieldController.text = '1';
     }
 
-    Future.microtask(() {
+    Future.microtask(() async {
       ref.read(categoryListProvider.notifier).loadCategories();
+      ref.read(materialListProvider.notifier).loadMaterials();
+
+      if (_isEditing) {
+        debugPrint(
+          '[RecipeLoad] Loading recipe for product: ${widget.product!.id}',
+        );
+        final recipeResult = await ref
+            .read(recipeRepositoryProvider)
+            .getByProductId(widget.product!.id);
+        debugPrint('[RecipeLoad] Result isSuccess: ${recipeResult.isSuccess}');
+        if (recipeResult.isSuccess && mounted) {
+          final items = recipeResult.dataOrNull?.items ?? [];
+          debugPrint('[RecipeLoad] Loaded ${items.length} recipe items');
+          for (final item in items) {
+            debugPrint(
+              '[RecipeLoad]   - ${item.rawMaterialName}: ${item.quantity} ${item.unit}',
+            );
+          }
+          setState(() {
+            _recipeItems = items;
+            _calculateEstimatedHpp();
+          });
+        } else {
+          debugPrint(
+            '[RecipeLoad] FAILED or disposed. isSuccess=${recipeResult.isSuccess}, mounted=$mounted',
+          );
+          if (!recipeResult.isSuccess) {
+            debugPrint('[RecipeLoad] Error: ${recipeResult.errorMessage}');
+          }
+        }
+      }
     });
+  }
+
+  void _calculateEstimatedHpp() {
+    final yieldVal = double.tryParse(_yieldController.text) ?? 1;
+    final totalMaterialCost = _recipeItems.fold(
+      0.0,
+      (sum, item) => sum + item.totalCost,
+    );
+
+    _estimatedHpp = totalMaterialCost / (yieldVal > 0 ? yieldVal : 1);
+
+    // Sync with cost controller if empty
+    if (_costController.text.isEmpty && _estimatedHpp > 0) {
+      _costController.text = _estimatedHpp.toStringAsFixed(0);
+    }
   }
 
   @override
@@ -82,6 +140,7 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
     _specialPriceController.dispose();
     _costController.dispose();
     _stockController.dispose();
+    _yieldController.dispose();
     super.dispose();
   }
 
@@ -107,27 +166,62 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
             ),
           ],
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header
-            _buildHeader(),
-            // Form Content
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Form(
-                  key: _formKey,
-                  child: isDesktop
-                      ? _buildDesktopLayout()
-                      : _buildMobileLayout(),
-                ),
-              ),
+        child: Form(
+          key: _formKey,
+          child: DefaultTabController(
+            length: 2,
+            child: Builder(
+              builder: (tabContext) {
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    _buildHeader(),
+                    // TabBar
+                    _buildTabBar(),
+                    // Tabs Content
+                    Flexible(
+                      child: TabBarView(
+                        children: [
+                          // Tab 1: Info Produk
+                          SingleChildScrollView(
+                            padding: const EdgeInsets.all(24),
+                            child: isDesktop
+                                ? _buildDesktopLayout()
+                                : _buildMobileLayout(),
+                          ),
+                          // Tab 2: Resep
+                          SingleChildScrollView(
+                            padding: const EdgeInsets.all(24),
+                            child: _buildRecipeTab(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Footer
+                    _buildFooter(),
+                  ],
+                );
+              },
             ),
-            // Footer
-            _buildFooter(),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return Container(
+      color: AppColors.primary,
+      child: const TabBar(
+        tabs: [
+          Tab(text: 'Informasi Produk'),
+          Tab(text: 'Resep Produksi'),
+        ],
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: Colors.white,
+        indicatorWeight: 3,
       ),
     );
   }
@@ -818,6 +912,408 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
     );
   }
 
+  Widget _buildRecipeTab() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'RESEP PRODUKSI',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Text(
+                  'Kelola bahan baku yang digunakan untuk produk ini',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+            _buildEstimatedHppBadge(),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildYieldSection(),
+        const SizedBox(height: 16),
+        _buildIngredientList(),
+        const SizedBox(height: 16),
+        _buildAddIngredientButton(),
+      ],
+    );
+  }
+
+  Widget _buildYieldSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade200),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.calculate_outlined, color: Colors.amber),
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Hasil Produksi (Yield)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                Text(
+                  'Resep di bawah menghasilkan berapa pcs?',
+                  style: TextStyle(fontSize: 11, color: Colors.black54),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 80,
+            child: TextFormField(
+              controller: _yieldController,
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => setState(() => _calculateEstimatedHpp()),
+              decoration: InputDecoration(
+                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.amber.shade300),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _selectedUnit ?? 'pcs',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEstimatedHppBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'Estimasi HPP',
+            style: TextStyle(fontSize: 10, color: AppColors.primary),
+          ),
+          Text(
+            'Rp ${_estimatedHpp.toStringAsFixed(0)}',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: AppColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIngredientList() {
+    if (_recipeItems.isEmpty) {
+      return Container(
+        height: 200,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.inventory_2_outlined,
+              size: 48,
+              color: Colors.grey.shade300,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Belum ada resep',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _recipeItems.length,
+      itemBuilder: (context, index) {
+        final item = _recipeItems[index];
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.egg_alt_outlined, color: Colors.grey),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.rawMaterialName ?? 'Bahan Baku',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      'Cost: Rp ${(item.unitCost ?? 0).toStringAsFixed(0)}/${item.unit}',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '${item.quantity} ${item.unit}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              if (item.unitConversion != 1.0)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Text(
+                    '(${item.unitConversion.toStringAsFixed(0)} pcs/unit)',
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                iconSize: 20,
+                onPressed: () {
+                  setState(() {
+                    _recipeItems.removeAt(index);
+                    _calculateEstimatedHpp();
+                  });
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAddIngredientButton() {
+    return InkWell(
+      onTap: _showAddIngredientDialog,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.5),
+            style: BorderStyle.solid,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_circle_outline, color: AppColors.primary, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Tambah Bahan Dari Stok',
+              style: TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddIngredientDialog() {
+    final materialState = ref.watch(materialListProvider);
+    materialState.when(
+      initial: () => ref.read(materialListProvider.notifier).loadMaterials(),
+      loading: () => null,
+      error: (m, c) => null,
+      success: (materials) {
+        showDialog(
+          context: context,
+          builder: (context) {
+            RawMaterial? selectedMaterial;
+            String? selectedUnit;
+            final qtyController = TextEditingController();
+
+            return StatefulBuilder(
+              builder: (context, setDialogState) {
+                return AlertDialog(
+                  title: const Text('Tambah Bahan Baku'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DropdownButtonFormField<RawMaterial>(
+                        decoration: _inputDecoration(
+                          prefixIcon: Icons.inventory_2,
+                        ),
+                        hint: const Text('Pilih Bahan'),
+                        items: materials
+                            .map(
+                              (m) => DropdownMenuItem(
+                                value: m,
+                                child: Text(m.name),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          setDialogState(() {
+                            selectedMaterial = val;
+                            if (val != null) {
+                              selectedUnit = val.baseUnit ?? val.unit;
+                            }
+                          });
+                        },
+                      ),
+                      if (selectedMaterial != null) ...[
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: qtyController,
+                                keyboardType: TextInputType.number,
+                                decoration: _inputDecoration(
+                                  prefixIcon: Icons.numbers,
+                                  hintText: 'Jumlah',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                initialValue: selectedUnit,
+                                decoration: _inputDecoration(),
+                                items: [
+                                  DropdownMenuItem(
+                                    value: selectedMaterial!.unit,
+                                    child: Text(selectedMaterial!.unit),
+                                  ),
+                                  if (selectedMaterial!.baseUnit != null &&
+                                      selectedMaterial!.baseUnit !=
+                                          selectedMaterial!.unit)
+                                    DropdownMenuItem(
+                                      value: selectedMaterial!.baseUnit,
+                                      child: Text(selectedMaterial!.baseUnit!),
+                                    ),
+                                ],
+                                onChanged: (val) {
+                                  setDialogState(() => selectedUnit = val);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (selectedUnit != null &&
+                            selectedMaterial!.baseUnit != null &&
+                            selectedUnit == selectedMaterial!.baseUnit)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, left: 4),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                'Konversi: 1 ${selectedMaterial!.unit} = ${selectedMaterial!.unitConversion.toStringAsFixed(0)} ${selectedMaterial!.baseUnit}',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey.shade600,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Batal'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (selectedMaterial != null &&
+                            qtyController.text.isNotEmpty &&
+                            selectedUnit != null) {
+                          // Calculate effective conversion based on chosen unit
+                          final effectiveConversion =
+                              selectedUnit == selectedMaterial!.unit
+                              ? 1.0
+                              : selectedMaterial!.unitConversion;
+
+                          final item = RecipeItem(
+                            id: '',
+                            productId: widget.product?.id ?? '',
+                            rawMaterialId: selectedMaterial!.id,
+                            rawMaterialName: selectedMaterial!.name,
+                            quantity: double.tryParse(qtyController.text) ?? 0,
+                            unit: selectedUnit!,
+                            unitCost: selectedMaterial!.lastPurchasePrice,
+                            unitConversion: effectiveConversion,
+                          );
+                          setState(() {
+                            _recipeItems.add(item);
+                            _calculateEstimatedHpp();
+                          });
+                          Navigator.pop(context);
+                        }
+                      },
+                      child: const Text('Tambah'),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -1015,6 +1511,7 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
       unit: _selectedUnit,
       productType: _selectedProductType,
       imageUrl: finalImageUrl,
+      recipeYield: int.tryParse(_yieldController.text) ?? 1,
       createdAt: widget.product?.createdAt ?? DateTime.now(),
     );
 
@@ -1030,15 +1527,52 @@ class _ProductFormDialogState extends ConsumerState<ProductFormDialog> {
     setState(() => _isLoading = false);
 
     if (success && mounted) {
-      Navigator.pop(context, true);
-      // Use CustomToast instead of SnackBar
-      CustomToast.showSuccess(
-        context: context,
-        title: _isEditing
-            ? 'Produk Berhasil Diperbarui'
-            : 'Produk Berhasil Ditambahkan',
-        subtitle: 'Perubahan telah disimpan ke sistem.',
+      // Phase 2: Save Recipe
+      final String productId =
+          widget.product?.id ?? ref.read(productFormProvider).data?.id ?? '';
+      debugPrint(
+        '[SaveProduct] Phase 2: productId=$productId, recipeItems=${_recipeItems.length}',
       );
+      for (final item in _recipeItems) {
+        debugPrint(
+          '[SaveProduct]   item: ${item.rawMaterialName} qty=${item.quantity} unit=${item.unit} materialId=${item.rawMaterialId}',
+        );
+      }
+      if (productId.isNotEmpty) {
+        final saveResult = await ref
+            .read(recipeRepositoryProvider)
+            .updateRecipe(productId, _recipeItems);
+        debugPrint(
+          '[SaveProduct] updateRecipe result: isSuccess=${saveResult.isSuccess}',
+        );
+        if (!saveResult.isSuccess) {
+          debugPrint(
+            '[SaveProduct] updateRecipe ERROR: ${saveResult.errorMessage}',
+          );
+        }
+        // Refresh HPP in DB
+        await ref.read(recipeRepositoryProvider).calculateHpp(productId).then((
+          res,
+        ) {
+          if (res.isSuccess && mounted) {
+            ref
+                .read(productRepositoryProvider)
+                .updateCostPrice(productId, res.dataOrNull ?? 0);
+          }
+        });
+      }
+
+      if (mounted) {
+        Navigator.pop(context, true);
+        // Use CustomToast instead of SnackBar
+        CustomToast.showSuccess(
+          context: context,
+          title: _isEditing
+              ? 'Produk Berhasil Diperbarui'
+              : 'Produk Berhasil Ditambahkan',
+          subtitle: 'Perubahan dan resep telah disimpan.',
+        );
+      }
     } else if (mounted) {
       CustomToast.showError(
         context: context,

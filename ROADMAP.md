@@ -4,7 +4,7 @@ Rencana pengembangan fitur aplikasi LF Kitchen.
 
 ---
 
-## 🎯 Versi Saat Ini: v1.1.2
+## 🎯 Versi Saat Ini: v2.0.0
 
 Fitur utama yang sudah tersedia:
 - ✅ Manajemen Pesanan (PO)
@@ -20,16 +20,20 @@ Fitur utama yang sudah tersedia:
 - ✅ Dark Mode Toggle
 - ✅ Ongkos Kirim (Shipping Cost)
 - ✅ Info Pembayaran di Laporan
+- ✅ Kalkulasi HPP & Resep (v2.0.0)
+- ✅ Konversi Unit Bahan (v2.0.0)
+
+---
 
 ---
 
 ## 📋 Roadmap
 
-### v1.1.0 - Snack Box & Paket (Released)
-- [x] Fitur Snack Box dengan isi pilihan
-- [x] Paket produk bundling
-- [x] Ukuran produk di semua halaman
-- [ ] Template box untuk repeat order
+### v2.0.0 - Cost & Inventory (Done)
+- [x] **Resep & Bahan Baku**: Input resep untuk setiap produk.
+- [x] **Kalkulasi HPP**: Perhitungan harga modal otomatis berdasarkan harga beli bahan.
+- [x] **Manajemen Stok**: Pencatatan stok bahan baku dan histori harga pembelian.
+- [ ] **Laporan Margin**: Analisis keuntungan per produk.
 
 ### v1.2.0 - Laporan & Analitik
 - [ ] Laporan penjualan harian/bulanan

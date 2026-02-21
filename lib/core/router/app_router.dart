@@ -13,6 +13,7 @@ import '../../features/orders/presentation/pages/snack_box_page.dart';
 import '../../features/orders/data/models/order.dart';
 import '../../features/purchasing/presentation/pages/purchase_list_page.dart';
 import '../../features/purchasing/presentation/pages/raw_materials_page.dart';
+import '../../features/purchasing/presentation/pages/supplier_list_page.dart';
 import '../../features/production/presentation/pages/production_dashboard_page.dart';
 import '../../features/invoices/presentation/pages/invoice_list_page.dart';
 import '../../features/reports/presentation/pages/reports_page.dart';
@@ -99,6 +100,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'purchasing',
             pageBuilder: (context, state) =>
                 const NoTransitionPage(child: PurchaseListPage()),
+          ),
+          // Supplier Route
+          GoRoute(
+            path: '/suppliers',
+            name: 'suppliers',
+            pageBuilder: (context, state) =>
+                const NoTransitionPage(child: SupplierListPage()),
           ),
           // Bahan Baku Route
           GoRoute(

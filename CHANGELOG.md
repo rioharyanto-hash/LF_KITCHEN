@@ -4,6 +4,48 @@ Semua perubahan dan peningkatan fitur aplikasi akan didokumentasikan di sini.
 
 ---
 
+## [v2.1.0] - 2026-02-19
+### 🐛 Bug Fix
+- **[CRITICAL] Recipe Persistence**: Tabel `product_recipes` belum dibuat di Supabase — semua operasi simpan resep gagal diam-diam. Tabel sekarang sudah dibuat dengan RLS permissive.
+
+### 🎨 UI Improvement
+- **Tombol Tambah Lebih Jelas**: Tombol "Tambah Produk", "Tambah Bahan", dan "Catat Pembelian" di AppBar diganti dari `IconButton` kecil menjadi `FilledButton.icon` berlabel teks agar lebih mudah ditemukan.
+
+---
+
+## [v2.0.0] - 2026-02-17
+### ✨ Fitur Baru
+- **Supplier Management**: Kelola data supplier (Tambah, Edit, Hapus, Cari, Hubungi).
+- **Purchase Integration**: Pintasan "Tambah Supplier" langsung dari form pembelian.
+- **Supplier Navigation**: Menu akses cepat Supplier di sidebar/drawer.
+- **Kalkulasi HPP (COGS)**: Sistem otomatis menghitung harga modal produk berdasarkan resep.
+- **Recipe Yield (Hasil Jadi)**: Dukungan perhitungan HPP per unit berdasarkan hasil produksi batch.
+- **Konversi Unit Bahan**: Konversi otomatis dari unit pembelian (misal: kg) ke unit resep (misal: gram/butir).
+- **Global HPP Sync**: Fitur untuk sinkronisasi harga modal semua produk secara massal berdasarkan harga pembelian terbaru.
+
+### 🔧 Perbaikan
+- **Raw Material UI**: Penambahan spesifikasi fisik (unit resep & konversi) di form bahan baku.
+- **Unit Management**: Perluasan daftar satuan standar (kg, gr, ml, ikat, sdm, dll) dan fleksibilitas konversi antar satuan.
+- **Recipe UI Hint**: Penambahan petunjuk konversi otomatis (misal: 1 kg = 1000 gr) saat menambah bahan ke resep.
+- **Product Recipe UI**: Peningkatan form resep dengan input yield dan estimasi HPP real-time.
+- **Recipe Repository**: Refaktor logika perhitungan HPP agar lebih akurat dan robust.
+- **[2026-02-18] [FIX] Recipe Save**: Perbaikan bug resep tidak tersimpan saat menyimpan dari tab Resep. Penyebab: Form validation hanya membungkus Tab 1.
+- **[2026-02-18] [FIX] Layout Crash**: Perbaikan crash "RenderBox was not laid out" pada halaman Bahan Baku di mobile, disebabkan oleh `Spacer()` dalam grid.
+- **[2026-02-18] [UI] Tombol Aksi ke AppBar**: Tombol "Tambah Produk", "Tambah Bahan", "Tambah Pelanggan", dan "Catat Pembelian" dipindahkan dari FAB ke AppBar untuk akses lebih cepat.
+
+---
+
+## [v1.0.0+1] - 2026-02-16
+### ✨ Fitur Baru
+- **Filter & Sort Invoice**: Filter tanggal dan sorting berdasarkan nama, nominal, dan jatuh tempo.
+- **Order Date Customization**: Tanggal pesanan dapat diatur manual dan pembatasan tanggal pengambilan dihapus.
+
+### 🔧 Perbaikan
+- **Deployment**: Konfigurasi Firebase Hosting selesai dan aplikasi deploy live.
+- **Form UI**: Perbaikan penempatan field tanggal di form Pesanan, Snack Box, dan Paketan.
+
+---
+
 ## [Unreleased]
 - Laporan Keuangan Detail
 - Integrasi Printer Thermal Bluetooth

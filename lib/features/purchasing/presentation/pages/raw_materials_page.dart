@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/custom_toast.dart';
+import '../../../../core/utils/result.dart';
 import '../../data/models/raw_material.dart';
 import '../../data/providers/purchase_providers.dart';
 
@@ -32,10 +33,22 @@ class _RawMaterialsPageState extends ConsumerState<RawMaterialsPage> {
       appBar: AppBar(
         title: const Text('Bahan Baku'),
         actions: [
+          FilledButton.icon(
+            onPressed: () => _showAddMaterialDialog(context),
+            icon: const Icon(Icons.add_circle, size: 22),
+            label: const Text('Tambah Bahan'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () =>
                 ref.read(materialListProvider.notifier).loadMaterials(),
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -65,11 +78,6 @@ class _RawMaterialsPageState extends ConsumerState<RawMaterialsPage> {
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddMaterialDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Tambah Bahan'),
       ),
     );
   }
@@ -173,21 +181,47 @@ class _MaterialGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.3,
-      ),
-      itemCount: materials.length,
-      itemBuilder: (context, index) {
-        final material = materials[index];
-        return _MaterialCard(
-          material: material,
-          onEdit: () => onEdit(material),
-          onDelete: () => onDelete(material.id),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+
+        if (isMobile) {
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: materials.length,
+            itemBuilder: (context, index) {
+              final material = materials[index];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _MaterialCard(
+                  material: material,
+                  onEdit: () => onEdit(material),
+                  onDelete: () => onDelete(material.id),
+                ),
+              );
+            },
+          );
+        }
+
+        final crossAxisCount = constraints.maxWidth < 1000 ? 2 : 4;
+
+        return GridView.builder(
+          padding: const EdgeInsets.all(16),
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 16,
+            childAspectRatio: 1.0,
+          ),
+          itemCount: materials.length,
+          itemBuilder: (context, index) {
+            final material = materials[index];
+            return _MaterialCard(
+              material: material,
+              onEdit: () => onEdit(material),
+              onDelete: () => onDelete(material.id),
+            );
+          },
         );
       },
     );
@@ -217,6 +251,7 @@ class _MaterialCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -244,9 +279,10 @@ class _MaterialCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                _buildPriceTrend(material),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -269,6 +305,16 @@ class _MaterialCard extends StatelessWidget {
                             : AppColors.success,
                       ),
                     ),
+                    if (material.baseUnit != null &&
+                        material.unit != material.baseUnit)
+                      Text(
+                        '1 ${material.unit} = ${material.unitConversion.toStringAsFixed(0)} ${material.baseUnit}',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.grey.shade600,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
                   ],
                 ),
                 if (material.isLowStock)
@@ -296,32 +342,193 @@ class _MaterialCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                TextButton.icon(
+                  onPressed: () => _showPriceHistory(context, material),
+                  icon: const Icon(Icons.history, size: 16),
+                  label: const Text('Riwayat', style: TextStyle(fontSize: 12)),
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: Colors.grey.shade600,
+                  ),
+                ),
+                const Spacer(),
                 IconButton(
                   icon: Icon(
                     Icons.edit_outlined,
-                    size: 18,
-                    color: Colors.grey.shade500,
+                    size: 20,
+                    color: AppColors.primary,
                   ),
                   onPressed: onEdit,
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
+                  tooltip: 'Edit Bahan',
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
                 IconButton(
                   icon: Icon(
                     Icons.delete_outline,
-                    size: 18,
-                    color: Colors.grey.shade500,
+                    size: 20,
+                    color: AppColors.error.withValues(alpha: 0.7),
                   ),
                   onPressed: onDelete,
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
+                  tooltip: 'Hapus Bahan',
                 ),
               ],
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPriceTrend(RawMaterial material) {
+    if (material.lastPurchasePrice == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.blue.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.payments_outlined, size: 12, color: Colors.blue),
+          const SizedBox(width: 4),
+          Text(
+            'Rp ${material.lastPurchasePrice?.toStringAsFixed(0)}',
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.blue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPriceHistory(BuildContext context, RawMaterial material) {
+    showDialog(
+      context: context,
+      builder: (context) => _PriceHistoryDialog(material: material),
+    );
+  }
+}
+
+class _PriceHistoryDialog extends ConsumerWidget {
+  final RawMaterial material;
+
+  const _PriceHistoryDialog({required this.material});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final repository = ref.watch(purchaseRepositoryProvider);
+
+    return AlertDialog(
+      title: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Riwayat Harga'),
+          Text(
+            material.name,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey.shade600,
+              fontWeight: FontWeight.normal,
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        height: 300,
+        child: FutureBuilder<Result<List<Map<String, dynamic>>>>(
+          future: repository.getMaterialPriceHistory(material.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final result = snapshot.data;
+            if (result == null || result.isFailure) {
+              return Center(
+                child: Text('Gagal memuat data: ${result?.errorMessage}'),
+              );
+            }
+
+            final history = result.dataOrNull ?? [];
+            if (history.isEmpty) {
+              return const Center(child: Text('Belum ada riwayat pembelian.'));
+            }
+
+            return ListView.separated(
+              itemCount: history.length,
+              separatorBuilder: (context, index) =>
+                  Divider(color: Colors.grey.shade200),
+              itemBuilder: (context, index) {
+                final item = history[index];
+                final cost = (item['unit_cost'] as num).toDouble();
+                final dateStr =
+                    item['material_purchases']['purchase_date'] as String;
+                final date = DateTime.parse(dateStr);
+
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text(
+                    'Rp ${cost.toStringAsFixed(0)} / ${material.unit}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Tanggal: ${date.day}/${date.month}/${date.year}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  trailing: index > 0
+                      ? _buildPriceChangeIndicator(
+                          cost,
+                          (history[index - 1]['unit_cost'] as num).toDouble(),
+                        )
+                      : null,
+                );
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Tutup'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPriceChangeIndicator(double current, double previous) {
+    if (current == previous) {
+      return const Icon(Icons.remove, color: Colors.grey, size: 16);
+    }
+
+    final isUp = current > previous;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          isUp ? Icons.trending_up : Icons.trending_down,
+          color: isUp ? Colors.red : Colors.green,
+          size: 16,
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '${((current - previous) / previous * 100).abs().toStringAsFixed(1)}%',
+          style: TextStyle(
+            color: isUp ? Colors.red : Colors.green,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -341,10 +548,27 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
   late TextEditingController _nameController;
   late TextEditingController _stockController;
   late TextEditingController _minStockController;
+  late TextEditingController _conversionController;
   String _selectedUnit = 'pcs';
+  String? _selectedBaseUnit;
   bool _isLoading = false;
 
-  static const _units = ['pcs', 'kg', 'gr', 'liter', 'ml', 'pack'];
+  static const _units = [
+    'pcs',
+    'kg',
+    'gr',
+    'mg',
+    'liter',
+    'ml',
+    'pack',
+    'dus',
+    'ikat',
+    'lembar',
+    'butir',
+    'sdm',
+    'sdt',
+    'cup',
+  ];
 
   bool get _isEditing => widget.material != null;
 
@@ -358,7 +582,11 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
     _minStockController = TextEditingController(
       text: widget.material?.minStockAlert?.toString() ?? '10',
     );
+    _conversionController = TextEditingController(
+      text: widget.material?.unitConversion.toString() ?? '1',
+    );
     _selectedUnit = widget.material?.unit ?? 'pcs';
+    _selectedBaseUnit = widget.material?.baseUnit;
   }
 
   @override
@@ -366,6 +594,7 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
     _nameController.dispose();
     _stockController.dispose();
     _minStockController.dispose();
+    _conversionController.dispose();
     super.dispose();
   }
 
@@ -436,6 +665,64 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
                   FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
                 ],
               ),
+              const Divider(height: 32),
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Konversi Satuan Resep',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _selectedBaseUnit,
+                      decoration: const InputDecoration(
+                        labelText: 'Unit di Resep',
+                        hintText: 'Misal: butir',
+                      ),
+                      items: [
+                        const DropdownMenuItem(
+                          value: null,
+                          child: Text('- SAMA -'),
+                        ),
+                        ..._units.map((u) {
+                          return DropdownMenuItem(value: u, child: Text(u));
+                        }),
+                      ],
+                      onChanged: (value) {
+                        setState(() => _selectedBaseUnit = value);
+                      },
+                    ),
+                  ),
+                  if (_selectedBaseUnit != null) ...[
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _conversionController,
+                        decoration: InputDecoration(
+                          labelText: '1 $_selectedUnit = ...',
+                          suffixText: _selectedBaseUnit,
+                        ),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[\d.]')),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (_selectedBaseUnit != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Contoh: Jika beli Telur per KG, tapi di resep pakai "Butir". \nSet 1 kg = 16 butir.',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  ),
+                ),
             ],
           ),
         ),
@@ -468,6 +755,8 @@ class _MaterialFormDialogState extends ConsumerState<_MaterialFormDialog> {
       id: widget.material?.id ?? '',
       name: _nameController.text.trim(),
       unit: _selectedUnit,
+      baseUnit: _selectedBaseUnit,
+      unitConversion: double.tryParse(_conversionController.text) ?? 1.0,
       stockQty: double.tryParse(_stockController.text) ?? 0,
       minStockAlert: double.tryParse(_minStockController.text),
       createdAt: widget.material?.createdAt ?? DateTime.now(),

@@ -5,7 +5,9 @@ import 'package:flutter/foundation.dart';
 class RawMaterial {
   final String id;
   final String name;
-  final String unit; // kg, gr, pcs, liter
+  final String unit; // Unit pembelian (misal: kg, pack)
+  final String? baseUnit; // Unit resep (misal: butir, gr, ml)
+  final double unitConversion; // 1 unit = x base_unit (misal: 1 kg = 16 butir)
   final double stockQty;
   final double? minStockAlert;
   final double? lastPurchasePrice;
@@ -16,6 +18,8 @@ class RawMaterial {
     required this.id,
     required this.name,
     required this.unit,
+    this.baseUnit,
+    this.unitConversion = 1.0,
     required this.stockQty,
     this.minStockAlert,
     this.lastPurchasePrice,
@@ -28,6 +32,8 @@ class RawMaterial {
       id: json['id'] as String,
       name: json['name'] as String,
       unit: json['unit'] as String? ?? 'pcs',
+      baseUnit: json['base_unit'] as String?,
+      unitConversion: (json['unit_conversion'] as num?)?.toDouble() ?? 1.0,
       stockQty: (json['stock_qty'] as num?)?.toDouble() ?? 0,
       minStockAlert: (json['min_stock_alert'] as num?)?.toDouble(),
       lastPurchasePrice: (json['last_purchase_price'] as num?)?.toDouble(),
@@ -42,6 +48,8 @@ class RawMaterial {
     return {
       'name': name,
       'unit': unit,
+      'base_unit': baseUnit,
+      'unit_conversion': unitConversion,
       'stock_qty': stockQty,
       'min_stock_alert': minStockAlert,
       'last_purchase_price': lastPurchasePrice,
@@ -52,6 +60,8 @@ class RawMaterial {
     String? id,
     String? name,
     String? unit,
+    String? baseUnit,
+    double? unitConversion,
     double? stockQty,
     double? minStockAlert,
     double? lastPurchasePrice,
@@ -62,6 +72,8 @@ class RawMaterial {
       id: id ?? this.id,
       name: name ?? this.name,
       unit: unit ?? this.unit,
+      baseUnit: baseUnit ?? this.baseUnit,
+      unitConversion: unitConversion ?? this.unitConversion,
       stockQty: stockQty ?? this.stockQty,
       minStockAlert: minStockAlert ?? this.minStockAlert,
       lastPurchasePrice: lastPurchasePrice ?? this.lastPurchasePrice,

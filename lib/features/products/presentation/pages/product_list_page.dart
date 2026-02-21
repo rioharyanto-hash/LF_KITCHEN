@@ -41,9 +41,21 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
       appBar: AppBar(
         title: const Text('Produk Kue'),
         actions: [
+          FilledButton.icon(
+            onPressed: () => _showAddProductDialog(context),
+            icon: const Icon(Icons.add_circle, size: 22),
+            label: const Text('Tambah Produk'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+          const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => ref.read(productListProvider.notifier).refresh(),
+            tooltip: 'Refresh',
           ),
         ],
       ),
@@ -158,11 +170,6 @@ class _ProductListPageState extends ConsumerState<ProductListPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddProductDialog(context),
-        icon: const Icon(Icons.add),
-        label: const Text('Tambah Produk'),
-      ),
     );
   }
 
@@ -262,11 +269,11 @@ class _ProductGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return GridView.builder(
       padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 0.58,
+        childAspectRatio: 0.52,
       ),
       itemCount: products.length,
       itemBuilder: (context, index) => ProductCard(

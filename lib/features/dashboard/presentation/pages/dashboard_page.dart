@@ -4,11 +4,14 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/result.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../orders/data/models/order.dart';
 import '../../../orders/data/providers/order_providers.dart';
 import '../../../products/data/models/product.dart';
 import '../../../products/data/providers/product_providers.dart';
+import '../../../products/data/providers/recipe_providers.dart';
+import '../../../../core/widgets/custom_toast.dart';
 
 /// Dashboard Page - Halaman utama aplikasi dengan desain modern
 class DashboardPage extends ConsumerStatefulWidget {
@@ -47,7 +50,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
 
     final todaySales = todayOrders.fold(0.0, (sum, o) => sum + o.totalAmount);
-    final todayCount = todayOrders.length;
 
     final pendingPO = orders
         .where(
@@ -63,6 +65,32 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         .length;
 
     final lowStock = products.where((p) => p.stockQty < 5).length;
+
+    // Build product map for cost lookup
+    final productCostMap = {for (var p in products) p.id: p.costPrice ?? 0.0};
+
+    // Calculate today's profit
+    double todayProfit = 0;
+    int itemsWithCostCount = 0;
+    double totalMarginPercent = 0;
+
+    for (final order in todayOrders) {
+      if (order.items != null) {
+        for (final item in order.items!) {
+          final cost = productCostMap[item.productId ?? ''] ?? 0.0;
+          if (cost > 0) {
+            todayProfit += (item.unitPrice - cost) * item.quantity;
+            totalMarginPercent +=
+                ((item.unitPrice - cost) / item.unitPrice) * 100;
+            itemsWithCostCount++;
+          }
+        }
+      }
+    }
+
+    final averageMargin = itemsWithCostCount > 0
+        ? totalMarginPercent / itemsWithCostCount
+        : 0.0;
 
     // Reminders: orders that need attention
     int statusPriority(OrderStatus status) {
@@ -259,7 +287,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       context: context,
                       isDesktop: isDesktop,
                       todaySales: todaySales,
-                      todayCount: todayCount,
+                      todayProfit: todayProfit,
+                      averageMargin: averageMargin,
                       pendingPO: pendingPO,
                       readyOrders: readyOrders,
                       lowStock: lowStock,
@@ -286,8 +315,38 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                         child: const Text('Lihat Semua'),
                       ),
                     ),
-                    const SizedBox(height: 12),
                     _buildReminderList(displayOrders),
+                    const SizedBox(height: 32),
+
+                    // Top Margin Products
+                    if (products.isNotEmpty) ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildSectionTitle(
+                            context,
+                            icon: Icons.star_rounded,
+                            title: 'Produk Margin Tertinggi',
+                          ),
+                          TextButton.icon(
+                            onPressed: () => _syncAllHPP(context, ref),
+                            icon: const Icon(Icons.sync_rounded, size: 16),
+                            label: const Text(
+                              'Update HPP Massal',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            style: TextButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTopMarginList(products),
+                    ],
                   ],
                 ),
               ),
@@ -326,7 +385,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     required BuildContext context,
     required bool isDesktop,
     required double todaySales,
-    required int todayCount,
+    required double todayProfit,
+    required double averageMargin,
     required int pendingPO,
     required int readyOrders,
     required int lowStock,
@@ -335,8 +395,15 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       _SummaryCardData(
         title: 'Penjualan Hari Ini',
         value: AppFormatters.formatCurrency(todaySales),
-        subtitle: '$todayCount transaksi berhasil',
+        subtitle: 'Total omzet kotor',
         icon: Icons.payments,
+        color: Colors.blue,
+      ),
+      _SummaryCardData(
+        title: 'Estimasi Laba',
+        value: AppFormatters.formatCurrency(todayProfit),
+        subtitle: 'Margin: ${averageMargin.toStringAsFixed(1)}%',
+        icon: Icons.trending_up,
         color: Colors.green,
       ),
       _SummaryCardData(
@@ -347,16 +414,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         color: Colors.amber,
       ),
       _SummaryCardData(
-        title: 'Siap Diambil',
-        value: '$readyOrders',
-        subtitle: 'Pesanan sudah siap',
-        icon: Icons.check_circle,
-        color: Colors.blue,
-      ),
-      _SummaryCardData(
         title: 'Stok Rendah',
         value: '$lowStock',
-        subtitle: 'Butuh restok segera',
+        subtitle: 'Barang butuh restok',
         icon: Icons.warning,
         color: Colors.red,
       ),
@@ -477,7 +537,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: Colors.grey.shade200),
       ),
-      clipBehavior: Clip.antiAlias,
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -487,6 +546,139 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         itemBuilder: (context, index) => _ReminderItem(order: orders[index]),
       ),
     );
+  }
+
+  Widget _buildTopMarginList(List<Product> products) {
+    // Sort products by margin percentage
+    final sortedProducts =
+        List<Product>.from(
+            products,
+          ).where((p) => p.costPrice != null && p.costPrice! > 0).toList()
+          ..sort((a, b) {
+            final marginA = (a.unitPrice - a.costPrice!) / a.unitPrice;
+            final marginB = (b.unitPrice - b.costPrice!) / b.unitPrice;
+            return marginB.compareTo(marginA);
+          });
+
+    final displayItems = sortedProducts.take(5).toList();
+
+    if (displayItems.isEmpty) return const SizedBox.shrink();
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.grey.shade200),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: displayItems.length,
+        separatorBuilder: (context, index) =>
+            Divider(height: 1, color: Colors.grey.shade100),
+        itemBuilder: (context, index) {
+          final p = displayItems[index];
+          final marginPercent =
+              ((p.unitPrice - p.costPrice!) / p.unitPrice) * 100;
+
+          return ListTile(
+            leading: p.imageUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.network(
+                      p.imageUrl!,
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                : Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Icon(
+                      Icons.cake,
+                      size: 20,
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
+            title: Text(
+              p.name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            subtitle: Text(
+              'HPP: ${AppFormatters.formatCurrency(p.costPrice ?? 0)}',
+              style: const TextStyle(fontSize: 12),
+            ),
+            trailing: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  '${marginPercent.toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    color: marginPercent >= 40 ? Colors.green : Colors.blue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+                Text(
+                  'Margin',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade500),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _syncAllHPP(BuildContext context, WidgetRef ref) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final result = await ref
+          .read(recipeRepositoryProvider)
+          .syncAllProductCosts();
+      if (context.mounted) Navigator.pop(context); // Pop loading
+
+      if (result.isSuccess) {
+        ref.read(productListProvider.notifier).loadProducts();
+        if (context.mounted) {
+          CustomToast.showSuccess(
+            context: context,
+            title: 'HPP Berhasil Diperbarui',
+            subtitle: 'Semua harga pokok produk telah disinkronkan.',
+          );
+        }
+      } else {
+        if (context.mounted) {
+          CustomToast.showError(
+            context: context,
+            title: 'Gagal Sinkronisasi',
+            subtitle: result.errorMessage ?? 'Terjadi kesalahan sistem.',
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        if (Navigator.canPop(context)) Navigator.pop(context);
+        CustomToast.showError(
+          context: context,
+          title: 'Gagal Sinkronisasi',
+          subtitle: e.toString(),
+        );
+      }
+    }
   }
 }
 
@@ -516,13 +708,22 @@ class _SummaryCard extends StatelessWidget {
     final isMobile = MediaQuery.of(context).size.width < 600;
 
     return Card(
-      elevation: 0,
+      elevation: 4,
+      shadowColor: data.color.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: data.color.withValues(alpha: 0.1)),
       ),
-      child: Padding(
-        padding: EdgeInsets.all(isMobile ? 10 : 16),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Colors.white, data.color.withValues(alpha: 0.02)],
+          ),
+        ),
+        padding: EdgeInsets.all(isMobile ? 12 : 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

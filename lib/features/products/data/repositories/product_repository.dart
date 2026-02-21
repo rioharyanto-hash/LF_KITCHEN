@@ -114,6 +114,16 @@ class ProductRepository extends BaseRepository {
     });
   }
 
+  /// Update harga pokok (HPP) produk
+  Future<Result<void>> updateCostPrice(String id, double costPrice) async {
+    return safeCall(() async {
+      await client
+          .from(_tableName)
+          .update({'cost_price': costPrice})
+          .eq('id', id);
+    });
+  }
+
   /// Ambil produk dengan stok rendah (untuk alert)
   Future<Result<List<Product>>> getLowStock({int threshold = 10}) async {
     return safeCall(() async {

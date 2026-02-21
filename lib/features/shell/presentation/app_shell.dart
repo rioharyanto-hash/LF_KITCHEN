@@ -81,6 +81,7 @@ class _MobileBottomNav extends StatelessWidget {
         location.startsWith('/customers') ||
         location.startsWith('/production') ||
         location.startsWith('/purchasing') ||
+        location.startsWith('/suppliers') ||
         location.startsWith('/products') ||
         location.startsWith('/invoices') ||
         location.startsWith('/reports') ||
@@ -147,6 +148,15 @@ class _MobileBottomNav extends StatelessWidget {
                 onTap: () {
                   Navigator.pop(context);
                   context.go('/invoices');
+                },
+              ),
+              ListTile(
+                dense: true,
+                leading: const Icon(Icons.store, size: 22),
+                title: const Text('Supplier'),
+                onTap: () {
+                  Navigator.pop(context);
+                  context.go('/suppliers');
                 },
               ),
               ListTile(
@@ -303,6 +313,13 @@ class _DesktopSidebar extends StatelessWidget {
                     icon: Icons.restaurant_menu,
                     label: 'Produk',
                     path: '/products',
+                    currentPath: currentPath,
+                    isExtended: isExtended,
+                  ),
+                  _NavItem(
+                    icon: Icons.store,
+                    label: 'Supplier',
+                    path: '/suppliers',
                     currentPath: currentPath,
                     isExtended: isExtended,
                   ),

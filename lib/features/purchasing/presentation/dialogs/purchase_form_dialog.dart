@@ -10,6 +10,7 @@ import '../../data/models/supplier.dart';
 import '../../data/models/raw_material.dart';
 import '../../data/models/purchase.dart';
 import '../../data/providers/purchase_providers.dart';
+import 'supplier_form_dialog.dart';
 
 /// Dialog untuk membuat pembelian baru
 class PurchaseFormDialog extends ConsumerStatefulWidget {
@@ -138,23 +139,54 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
                       supplierState.when(
                         initial: () => const LinearProgressIndicator(),
                         loading: () => const LinearProgressIndicator(),
-                        success: (suppliers) =>
-                            DropdownButtonFormField<Supplier>(
-                              initialValue: _selectedSupplier,
-                              decoration: const InputDecoration(
-                                labelText: 'Supplier',
-                                prefixIcon: Icon(Icons.store),
+                        success: (suppliers) => Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: DropdownButtonFormField<Supplier>(
+                                initialValue: _selectedSupplier,
+                                decoration: const InputDecoration(
+                                  labelText: 'Supplier',
+                                  prefixIcon: Icon(Icons.store),
+                                ),
+                                items: suppliers.map((s) {
+                                  return DropdownMenuItem(
+                                    value: s,
+                                    child: Text(s.name),
+                                  );
+                                }).toList(),
+                                onChanged: (value) {
+                                  setState(() => _selectedSupplier = value);
+                                },
                               ),
-                              items: suppliers.map((s) {
-                                return DropdownMenuItem(
-                                  value: s,
-                                  child: Text(s.name),
-                                );
-                              }).toList(),
-                              onChanged: (value) {
-                                setState(() => _selectedSupplier = value);
-                              },
                             ),
+                            const SizedBox(width: 8),
+                            Container(
+                              margin: const EdgeInsets.only(top: 4),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: IconButton(
+                                onPressed: () async {
+                                  final result = await showDialog(
+                                    context: context,
+                                    builder: (context) =>
+                                        const SupplierFormDialog(),
+                                  );
+                                  if (result == true) {
+                                    // Refresh list and keep dialog open
+                                    ref
+                                        .read(supplierListProvider.notifier)
+                                        .loadSuppliers();
+                                  }
+                                },
+                                icon: Icon(Icons.add, color: AppColors.primary),
+                                tooltip: 'Tambah Supplier Baru',
+                              ),
+                            ),
+                          ],
+                        ),
                         error: (msg, code) => Text('Error: $msg'),
                       ),
                       const SizedBox(height: 24),
@@ -167,10 +199,21 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
                             'Item Pembelian',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          TextButton.icon(
+                          FilledButton.icon(
                             onPressed: () => _addItem(materialState),
-                            icon: const Icon(Icons.add),
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              size: 22,
+                            ),
                             label: const Text('Tambah Item'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 10,
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -224,62 +267,118 @@ class _PurchaseFormDialogState extends ConsumerState<PurchaseFormDialog> {
                                       ),
                                     ],
                                   ),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          initialValue: item.quantity
-                                              .toString(),
-                                          decoration: InputDecoration(
-                                            labelText: 'Qty',
-                                            suffixText: item.material.unit,
-                                            isDense: true,
+                                  // Responsive layout: vertical on mobile, horizontal on desktop
+                                  if (isDesktop)
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            initialValue: item.quantity
+                                                .toString(),
+                                            decoration: InputDecoration(
+                                              labelText: 'Qty',
+                                              suffixText: item.material.unit,
+                                              isDense: true,
+                                            ),
+                                            keyboardType: TextInputType.number,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                item.quantity =
+                                                    double.tryParse(value) ?? 0;
+                                              });
+                                            },
                                           ),
-                                          keyboardType: TextInputType.number,
-                                          onChanged: (value) {
-                                            setState(() {
-                                              item.quantity =
-                                                  double.tryParse(value) ?? 0;
-                                            });
-                                          },
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          flex: 2,
+                                          child: TextFormField(
+                                            initialValue: item.unitCost
+                                                .toStringAsFixed(0),
+                                            decoration: const InputDecoration(
+                                              labelText: 'Harga Satuan',
+                                              prefixText: 'Rp ',
+                                              isDense: true,
+                                            ),
+                                            keyboardType: TextInputType.number,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                            ],
+                                            onChanged: (value) {
+                                              setState(() {
+                                                item.unitCost =
+                                                    double.tryParse(value) ?? 0;
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        SizedBox(
+                                          width: 100,
+                                          child: Text(
+                                            _currencyFormat.format(
+                                              item.subtotal,
+                                            ),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            textAlign: TextAlign.right,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  else ...[
+                                    // Mobile: Qty full width
+                                    TextFormField(
+                                      initialValue: item.quantity.toString(),
+                                      decoration: InputDecoration(
+                                        labelText: 'Jumlah (Qty)',
+                                        suffixText: item.material.unit,
+                                        isDense: true,
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          item.quantity =
+                                              double.tryParse(value) ?? 0;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(height: 8),
+                                    // Mobile: Harga Satuan full width
+                                    TextFormField(
+                                      initialValue: item.unitCost
+                                          .toStringAsFixed(0),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Harga Satuan',
+                                        prefixText: 'Rp ',
+                                        isDense: true,
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          item.unitCost =
+                                              double.tryParse(value) ?? 0;
+                                        });
+                                      },
+                                    ),
+                                    const SizedBox(height: 8),
+                                    // Mobile: Subtotal row
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Text(
+                                        'Subtotal: ${_currencyFormat.format(item.subtotal)}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primary,
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: TextFormField(
-                                          initialValue: item.unitCost
-                                              .toStringAsFixed(0),
-                                          decoration: const InputDecoration(
-                                            labelText: 'Harga Satuan',
-                                            prefixText: 'Rp ',
-                                            isDense: true,
-                                          ),
-                                          keyboardType: TextInputType.number,
-                                          inputFormatters: [
-                                            FilteringTextInputFormatter
-                                                .digitsOnly,
-                                          ],
-                                          onChanged: (value) {
-                                            setState(() {
-                                              item.unitCost =
-                                                  double.tryParse(value) ?? 0;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      SizedBox(
-                                        width: 100,
-                                        child: Text(
-                                          _currencyFormat.format(item.subtotal),
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                          textAlign: TextAlign.right,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

@@ -126,7 +126,7 @@ class ProductCard extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 // Price and Stock Row
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -154,9 +154,62 @@ class ProductCard extends StatelessWidget {
                       ],
                     ),
                     // Stock Badge
+                    // Stock Badge
                     _StockBadge(stock: product.stockQty),
                   ],
                 ),
+                const SizedBox(height: 4),
+                // Margin & HPP Info
+                if (product.costPrice != null && product.costPrice! > 0)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'HPP',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            Text(
+                              _currencyFormat.format(product.costPrice),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Margin',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade500,
+                              ),
+                            ),
+                            _buildMarginBadge(product),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -260,6 +313,19 @@ class ProductCard extends StatelessWidget {
             Text(_currencyFormat.format(product.unitPrice)),
             const SizedBox(height: 4),
             _StockBadge(stock: product.stockQty),
+            if (product.costPrice != null && product.costPrice! > 0) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text(
+                    'HPP: ${_currencyFormat.format(product.costPrice)}',
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildMarginBadge(product),
+                ],
+              ),
+            ],
           ],
         ),
         trailing: PopupMenuButton<String>(
@@ -282,6 +348,41 @@ class ProductCard extends StatelessWidget {
   Widget _imagePlaceholder() {
     return Center(
       child: Icon(Icons.cake, size: 48, color: Colors.grey.shade300),
+    );
+  }
+
+  Widget _buildMarginBadge(Product product) {
+    if (product.costPrice == null || product.costPrice! <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    final profit = product.unitPrice - product.costPrice!;
+    final marginPercent = (profit / product.unitPrice) * 100;
+
+    // Determine color based on margin percentage
+    Color color;
+    if (marginPercent >= 40) {
+      color = Colors.green;
+    } else if (marginPercent >= 20) {
+      color = Colors.blue;
+    } else {
+      color = Colors.orange;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        '${marginPercent.toStringAsFixed(1)}%',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: color,
+        ),
+      ),
     );
   }
 }

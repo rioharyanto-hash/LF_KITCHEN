@@ -12,6 +12,7 @@ class Product {
   final String? unit; // Satuan: pcs, box, slice
   final String? productType; // Jenis: Cake, Pastry, Bread, Snack
   final String? imageUrl;
+  final int recipeYield; // Jumlah hasil produksi per resep
   final DateTime createdAt;
   final DateTime? updatedAt;
 
@@ -28,6 +29,7 @@ class Product {
     this.unit,
     this.productType,
     this.imageUrl,
+    this.recipeYield = 1,
     required this.createdAt,
     this.updatedAt,
   });
@@ -56,6 +58,7 @@ class Product {
       unit: json['unit'] as String?,
       productType: json['product_type'] as String?,
       imageUrl: json['image_url'] as String?,
+      recipeYield: json['recipe_yield'] as int? ?? 1,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
@@ -96,6 +99,7 @@ class Product {
       'unit': unit,
       'product_type': productType,
       'image_url': imageUrl,
+      'recipe_yield': recipeYield,
     };
   }
 
@@ -112,6 +116,7 @@ class Product {
     String? unit,
     String? productType,
     String? imageUrl,
+    int? recipeYield,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -128,6 +133,7 @@ class Product {
       unit: unit ?? this.unit,
       productType: productType ?? this.productType,
       imageUrl: imageUrl ?? this.imageUrl,
+      recipeYield: recipeYield ?? this.recipeYield,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

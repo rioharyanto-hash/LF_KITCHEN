@@ -169,6 +169,23 @@ class PurchaseRepository extends BaseRepository {
     });
   }
 
+  /// Get price history for a specific material
+  Future<Result<List<Map<String, dynamic>>>> getMaterialPriceHistory(
+    String materialId, {
+    int limit = 5,
+  }) async {
+    return safeCall(() async {
+      final response = await client
+          .from(_purchaseItemsTable)
+          .select('unit_cost, material_purchases(purchase_date)')
+          .eq('material_id', materialId)
+          .order('material_purchases(purchase_date)', ascending: false)
+          .limit(limit);
+
+      return (response as List).cast<Map<String, dynamic>>();
+    });
+  }
+
   // ==================== PURCHASES ====================
 
   /// Get all purchases with supplier info
