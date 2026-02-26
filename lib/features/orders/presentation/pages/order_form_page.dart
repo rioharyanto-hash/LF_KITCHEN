@@ -454,6 +454,18 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
             ),
             onChanged: (v) => setState(() {}),
           ),
+          const SizedBox(height: 16),
+
+          // Notes
+          TextField(
+            controller: _notesController,
+            maxLines: 2,
+            decoration: const InputDecoration(
+              labelText: 'Catatan',
+              hintText: 'Catatan tambahan...',
+              isDense: true,
+            ),
+          ),
           const SizedBox(height: 24),
 
           // Total section

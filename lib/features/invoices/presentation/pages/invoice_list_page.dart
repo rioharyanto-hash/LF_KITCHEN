@@ -7,6 +7,7 @@ import '../../../../core/widgets/custom_toast.dart';
 import '../../data/models/invoice.dart';
 import '../../data/providers/invoice_providers.dart';
 import '../../../orders/data/providers/order_providers.dart';
+import '../widgets/invoice_accumulation_view.dart';
 
 /// Invoice List Page - Daftar Tagihan Pelanggan
 class InvoiceListPage extends ConsumerStatefulWidget {
@@ -16,18 +17,27 @@ class InvoiceListPage extends ConsumerStatefulWidget {
   ConsumerState<InvoiceListPage> createState() => _InvoiceListPageState();
 }
 
-class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
+class _InvoiceListPageState extends ConsumerState<InvoiceListPage>
+    with SingleTickerProviderStateMixin {
   InvoiceStatus? _selectedStatus;
   DateTimeRange? _selectedDateRange;
   String _sortBy = 'created_at';
   bool _ascending = false;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     Future.microtask(() {
       ref.read(invoiceListProvider.notifier).loadInvoices();
     });
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -72,48 +82,80 @@ class _InvoiceListPageState extends ConsumerState<InvoiceListPage> {
           ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadInvoices),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(
+              icon: Icon(Icons.receipt_long, size: 20),
+              text: 'Daftar Tagihan',
+            ),
+            Tab(icon: Icon(Icons.group_outlined, size: 20), text: 'Akumulasi'),
+          ],
+        ),
       ),
-      body: Column(
+      body: TabBarView(
+        controller: _tabController,
         children: [
-          // Filter Chips
-          _FilterChips(
-            selectedStatus: _selectedStatus,
-            selectedDateRange: _selectedDateRange,
-            onStatusChanged: (status) {
-              setState(() => _selectedStatus = status);
-              _loadInvoices();
-            },
-            onClearDate: () {
-              setState(() => _selectedDateRange = null);
-              _loadInvoices();
-            },
-          ),
-          // Invoice List
-          Expanded(
-            child: invoiceState.when(
-              initial: () => const Center(child: Text('Memuat data...')),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              success: (invoices) {
-                if (invoices.isEmpty) {
-                  return _EmptyState(selectedStatus: _selectedStatus);
-                }
-                return RefreshIndicator(
-                  onRefresh: () =>
-                      ref.read(invoiceListProvider.notifier).loadInvoices(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: invoices.length,
-                    itemBuilder: (context, index) => _ExpandableInvoiceCard(
-                      invoice: invoices[index],
-                      onPayment: () =>
-                          _showPaymentDialog(context, invoices[index]),
+          // Tab 1: Daftar Tagihan (existing)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              return Column(
+                children: [
+                  // Filter Chips
+                  _FilterChips(
+                    selectedStatus: _selectedStatus,
+                    selectedDateRange: _selectedDateRange,
+                    onStatusChanged: (status) {
+                      setState(() => _selectedStatus = status);
+                      _loadInvoices();
+                    },
+                    onClearDate: () {
+                      setState(() => _selectedDateRange = null);
+                      _loadInvoices();
+                    },
+                  ),
+                  // Invoice List
+                  Expanded(
+                    child: invoiceState.when(
+                      initial: () =>
+                          const Center(child: Text('Memuat data...')),
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      success: (invoices) {
+                        if (invoices.isEmpty) {
+                          return _EmptyState(selectedStatus: _selectedStatus);
+                        }
+                        return RefreshIndicator(
+                          onRefresh: () => ref
+                              .read(invoiceListProvider.notifier)
+                              .loadInvoices(),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: invoices.length,
+                            itemBuilder: (context, index) =>
+                                _ExpandableInvoiceCard(
+                                  invoice: invoices[index],
+                                  onPayment: () => _showPaymentDialog(
+                                    context,
+                                    invoices[index],
+                                  ),
+                                ),
+                          ),
+                        );
+                      },
+                      error: (msg, code) => Center(child: Text('Error: $msg')),
                     ),
                   ),
-                );
-              },
-              error: (msg, code) => Center(child: Text('Error: $msg')),
-            ),
+                ],
+              );
+            },
           ),
+
+          // Tab 2: Akumulasi Pelanggan (new)
+          const InvoiceAccumulationView(),
         ],
       ),
     );

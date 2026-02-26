@@ -4,6 +4,26 @@ Semua perubahan dan peningkatan fitur aplikasi akan didokumentasikan di sini.
 
 ---
 
+## [v2.2.1] - 2026-02-22
+### 🐛 Bug Fix
+- **AI Quota Fix**: Pindah model ke `gemini-1.5-flash` untuk kuota free tier yang lebih stabil (menghindari error "limit 0" di 2.0-flash).
+- **Better Error Messages**: Pesan error yang lebih jelas saat kuota Gemini habis (Rate Limit).
+
+### 🛠️ Cleanup & Hardening
+- **Security**: Mengaktifkan Row Level Security (RLS) di semua tabel Supabase.
+- **Dead Code Removal**: Menghapus layer API yang tidak digunakan (`ApiService`, `ApiConfig`, dll).
+- **Dependency Cleanup**: Menghapus package `http` yang sudah tidak diperlukan.
+
+---
+
+## [v2.2.0] - 2026-02-21
+### ✨ Fitur Baru
+- **Scan Struk Belanja**: Foto struk supermarket → AI (Gemini) otomatis extract item → review & edit → simpan sebagai pembelian bahan baku.
+- **Auto-Match Bahan Baku**: Item dari struk otomatis dihubungkan ke bahan baku yang sudah terdaftar.
+- **Tombol Scan Struk**: Tombol "Scan Struk" baru di halaman Pembelian Bahan.
+
+---
+
 ## [v2.1.0] - 2026-02-19
 ### 🐛 Bug Fix
 - **[CRITICAL] Recipe Persistence**: Tabel `product_recipes` belum dibuat di Supabase — semua operasi simpan resep gagal diam-diam. Tabel sekarang sudah dibuat dengan RLS permissive.
@@ -47,8 +67,16 @@ Semua perubahan dan peningkatan fitur aplikasi akan didokumentasikan di sini.
 ---
 
 ## [Unreleased]
+### Added
+- [2026-02-25] [FEATURE] Fitur akumulasi tagihan belum dibayar per pelanggan dengan perincian produk di halaman Tagihan.
 - Laporan Keuangan Detail
 - Integrasi Printer Thermal Bluetooth
+
+### Fixed
+- [2026-02-26] [FIX] Layout cetak kwitansi PDF: perataan angka (Rp dan nominal) sekarang sejajar sempurna.
+- [2026-02-26] [FIX] Sanitasi karakter Unicode (hyphen/dash) pada nama produk di PDF cetak.
+- [2026-02-26] [FIX] Mengganti gambar tanda tangan manual dengan QR Code pada kwitansi PDF.
+- [2026-02-26] [FIX] Field "Catatan Tambahan" yang hilang di tampilan mobile (halaman Pesanan & Snack Box) telah dimunculkan kembali.
 
 ---
 

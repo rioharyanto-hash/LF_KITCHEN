@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_theme.dart';
@@ -39,6 +40,17 @@ class _PurchaseListPageState extends ConsumerState<PurchaseListPage> {
       appBar: AppBar(
         title: const Text('Pembelian Bahan'),
         actions: [
+          FilledButton.icon(
+            onPressed: () => context.push('/receipt-scan'),
+            icon: const Icon(Icons.document_scanner, size: 22),
+            label: const Text('Scan Struk'),
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.amber.shade100,
+              foregroundColor: Colors.amber.shade900,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+          ),
+          const SizedBox(width: 8),
           FilledButton.icon(
             onPressed: () => _showAddPurchaseDialog(context),
             icon: const Icon(Icons.add_circle, size: 22),

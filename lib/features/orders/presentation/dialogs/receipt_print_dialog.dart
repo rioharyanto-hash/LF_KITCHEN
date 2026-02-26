@@ -420,8 +420,8 @@ class _ReceiptPrintDialogState extends ConsumerState<ReceiptPrintDialog> {
     );
     final logoBytes = logoImage.buffer.asUint8List();
 
-    final signatureImage = await rootBundle.load('assets/images/signature.png');
-    final signatureBytes = signatureImage.buffer.asUint8List();
+    final qrCodeImage = await rootBundle.load('assets/images/qr_code.png');
+    final qrCodeBytes = qrCodeImage.buffer.asUint8List();
 
     pdf.addPage(
       pw.Page(
@@ -574,11 +574,15 @@ class _ReceiptPrintDialogState extends ConsumerState<ReceiptPrintDialog> {
                             _isPaketanOrder(order.notes) &&
                                     order.items![i].productId == null
                                 ? _tableCellWithContents(
-                                    order.items![i].productName ?? '-',
+                                    _sanitizeText(
+                                      order.items![i].productName ?? '-',
+                                    ),
                                     _parsePackageContents(order.notes),
                                   )
                                 : _tableCell(
-                                    order.items![i].productName ?? '-',
+                                    _sanitizeText(
+                                      order.items![i].productName ?? '-',
+                                    ),
                                   ),
                             _tableCell(
                               '${order.items![i].quantity}',
@@ -586,10 +590,9 @@ class _ReceiptPrintDialogState extends ConsumerState<ReceiptPrintDialog> {
                             ),
                             _tableCell(
                               _formatNumber(order.items![i].unitPrice),
+                              align: pw.TextAlign.right,
                             ),
-                            _tableCell(
-                              _formatCurrency(order.items![i].subtotal),
-                            ),
+                            _tableCurrencyCell(order.items![i].subtotal),
                           ],
                         ),
                       // Sub-item (ISI) - starting with "  -" for snackbox
@@ -615,52 +618,79 @@ class _ReceiptPrintDialogState extends ConsumerState<ReceiptPrintDialog> {
               ),
               pw.SizedBox(height: 10),
 
-              // Shipping & Total
+              // Shipping & Total - using same table structure for alignment
+              pw.Table(
+                columnWidths: {
+                  0: const pw.FixedColumnWidth(40),
+                  1: const pw.FlexColumnWidth(3),
+                  2: const pw.FixedColumnWidth(60),
+                  3: const pw.FixedColumnWidth(90),
+                  4: const pw.FixedColumnWidth(100),
+                },
+                children: [
+                  if (shipping > 0)
+                    pw.TableRow(
+                      children: [
+                        pw.SizedBox(),
+                        pw.SizedBox(),
+                        pw.SizedBox(),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(5),
+                          child: pw.Text(
+                            'Ongkos Kirim',
+                            textAlign: pw.TextAlign.right,
+                          ),
+                        ),
+                        _tableCurrencyCell(shipping),
+                      ],
+                    ),
+                ],
+              ),
+              pw.SizedBox(height: 5),
+              // TOTAL box aligned to the right
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.end,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      if (shipping > 0)
-                        pw.Row(
-                          children: [
-                            pw.Text('Ongkos Kirim'),
-                            pw.SizedBox(width: 40),
-                            pw.Text(_formatCurrency(shipping)),
-                          ],
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(
+                        color: PdfColors.brown800,
+                        width: 2,
+                      ),
+                    ),
+                    child: pw.Row(
+                      mainAxisSize: pw.MainAxisSize.min,
+                      children: [
+                        pw.Text(
+                          'TOTAL',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                         ),
-                      pw.SizedBox(height: 5),
-                      pw.Container(
-                        padding: const pw.EdgeInsets.all(8),
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(
-                            color: PdfColors.brown800,
-                            width: 2,
+                        pw.SizedBox(width: 10),
+                        pw.Text(' : '),
+                        pw.Container(
+                          width: 100,
+                          child: pw.Row(
+                            children: [
+                              pw.Text(
+                                'Rp.',
+                                style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold,
+                                ),
+                              ),
+                              pw.Spacer(),
+                              pw.Text(
+                                _formatNumber(grandTotal),
+                                style: pw.TextStyle(
+                                  fontWeight: pw.FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        child: pw.Row(
-                          children: [
-                            pw.Text(
-                              'TOTAL',
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                              ),
-                            ),
-                            pw.SizedBox(width: 20),
-                            pw.Text(': Rp.'),
-                            pw.SizedBox(width: 20),
-                            pw.Text(
-                              _formatNumber(grandTotal),
-                              style: pw.TextStyle(
-                                fontWeight: pw.FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -742,18 +772,19 @@ class _ReceiptPrintDialogState extends ConsumerState<ReceiptPrintDialog> {
                       ],
                     ),
                   ),
-                  // Signature area
+                  // QR Code area
                   pw.Column(
                     children: [
                       pw.Text('Jakarta, ${dateFormat.format(_receiptDate)}'),
-                      pw.Text('Yang Menerima'),
-                      pw.SizedBox(height: 15),
+                      pw.SizedBox(height: 5),
+                      pw.Text('Yang Menerima,'),
+                      pw.SizedBox(height: 10),
                       pw.Container(
-                        width: 120,
-                        height: 60,
-                        child: pw.Image(pw.MemoryImage(signatureBytes)),
+                        width: 100,
+                        height: 100,
+                        child: pw.Image(pw.MemoryImage(qrCodeBytes)),
                       ),
-                      pw.SizedBox(height: 8),
+                      pw.SizedBox(height: 10),
                       pw.Text(
                         '( Lusi Febrianti )',
                         style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
@@ -771,12 +802,21 @@ class _ReceiptPrintDialogState extends ConsumerState<ReceiptPrintDialog> {
     return pdf.save();
   }
 
-  String _formatCurrency(double value) {
-    return 'Rp ${_formatNumber(value)}';
-  }
-
   String _formatNumber(double value) {
     return NumberFormat('#,###', 'id_ID').format(value);
+  }
+
+  /// Replace special Unicode hyphens/dashes with standard ASCII hyphen
+  String _sanitizeText(String text) {
+    return text
+        .replaceAll('\u2010', '-') // hyphen
+        .replaceAll('\u2011', '-') // non-breaking hyphen
+        .replaceAll('\u2012', '-') // figure dash
+        .replaceAll('\u2013', '-') // en-dash
+        .replaceAll('\u2014', '-') // em-dash
+        .replaceAll('\u2015', '-') // horizontal bar
+        .replaceAll('\u2212', '-') // minus sign
+        .replaceAll('\u00AD', '-'); // soft hyphen
   }
 
   pw.Widget _buildInfoRow(String label, String value) {
@@ -807,6 +847,15 @@ class _ReceiptPrintDialogState extends ConsumerState<ReceiptPrintDialog> {
     return pw.Container(
       padding: const pw.EdgeInsets.all(5),
       child: pw.Text(text, textAlign: align),
+    );
+  }
+
+  pw.Widget _tableCurrencyCell(double value) {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(5),
+      child: pw.Row(
+        children: [pw.Text('Rp'), pw.Spacer(), pw.Text(_formatNumber(value))],
+      ),
     );
   }
 
