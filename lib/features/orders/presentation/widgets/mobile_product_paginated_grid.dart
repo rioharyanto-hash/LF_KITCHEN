@@ -9,6 +9,7 @@ class MobileProductPaginatedGrid extends StatefulWidget {
   final Function(Product)? onDecrement;
   final bool Function(Product) isSelected;
   final int Function(Product)? getQuantity;
+  final double Function(Product)? getDisplayPrice;
   final bool useProductTypeAsFilter;
 
   const MobileProductPaginatedGrid({
@@ -18,6 +19,7 @@ class MobileProductPaginatedGrid extends StatefulWidget {
     this.onDecrement,
     required this.isSelected,
     this.getQuantity,
+    this.getDisplayPrice,
     this.useProductTypeAsFilter = false,
   });
 
@@ -251,7 +253,10 @@ class _MobileProductPaginatedGridState
                   // Price
                   const SizedBox(height: 2),
                   Text(
-                    _currencyFormat.format(product.unitPrice),
+                    _currencyFormat.format(
+                      widget.getDisplayPrice?.call(product) ??
+                          product.unitPrice,
+                    ),
                     style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                   ),
                 ],

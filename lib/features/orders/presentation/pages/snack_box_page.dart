@@ -65,13 +65,21 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
     return cake.unitPrice;
   }
 
+  // Harga air berdasarkan tipe pelanggan
+  double _getWaterPrice(Product water) {
+    if (_selectedCustomer?.isSpecialPrice == true) {
+      return water.specialPrice > 0 ? water.specialPrice : water.unitPrice;
+    }
+    return water.unitPrice;
+  }
+
   // Harga isi per box (kue + air)
   double get _contentsPrice {
     double total = _selectedCakes.fold(
       0,
       (sum, cake) => sum + _getCakePrice(cake),
     );
-    if (_selectedWater != null) total += _selectedWater!.unitPrice;
+    if (_selectedWater != null) total += _getWaterPrice(_selectedWater!);
     return total;
   }
 
@@ -177,6 +185,27 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Customer dropdown
+          Padding(
+            padding: const EdgeInsets.all(16).copyWith(bottom: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'NAMA PEMESAN *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    color: Colors.grey,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _buildCustomerDropdown(),
+              ],
+            ),
+          ),
+
           // Info bar
           Container(
             padding: const EdgeInsets.all(12),
@@ -241,8 +270,8 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
               ...waters.map(
                 (w) => _buildWaterOptionTile(
                   w,
-                  '${w.name} (${_currencyFormat.format(w.unitPrice)})',
-                  w.unitPrice,
+                  '${w.name} (${_currencyFormat.format(_getWaterPrice(w))})',
+                  _getWaterPrice(w),
                 ),
               ),
             ],
@@ -367,20 +396,6 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
             'Detail Pesanan',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
-          const SizedBox(height: 16),
-
-          // Customer
-          const Text(
-            'NAMA PEMESAN *',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 11,
-              color: Colors.grey,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _buildCustomerDropdown(),
           const SizedBox(height: 16),
 
           // Date
@@ -742,7 +757,7 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
                 (water) => ChoiceChip(
                   avatar: const Icon(Icons.water_drop, size: 16),
                   label: Text(
-                    '${water.name} (${_currencyFormat.format(water.unitPrice)})',
+                    '${water.name} (${_currencyFormat.format(_getWaterPrice(water))})',
                   ),
                   selected: _selectedWater?.id == water.id,
                   onSelected: (selected) {
@@ -757,7 +772,7 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
         const SizedBox(height: 24),
 
         // Cake Selection - Grouped by Jenis (productType)
-        const Text(
+        Text(
           'Pilih Kue (2-4 macam):',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
@@ -923,13 +938,16 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
-                        _currencyFormat.format(_getCakePrice(product)),
+                        _currencyFormat.format(
+                          isCake
+                              ? _getCakePrice(product)
+                              : _getWaterPrice(product),
+                        ),
                         style: TextStyle(
-                          color: AppColors.primary,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1515,7 +1533,10 @@ class _SnackBoxPageState extends ConsumerState<SnackBoxPage> {
       );
 
       // 2. Individual cake items (ISI)
-      for (final cake in _selectedCakes) {
+      final sortedCakes = _selectedCakes.toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+
+      for (final cake in sortedCakes) {
         items.add(
           OrderItem(
             id: '',

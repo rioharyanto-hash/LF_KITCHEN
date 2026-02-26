@@ -255,6 +255,27 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Customer dropdown
+          Padding(
+            padding: const EdgeInsets.all(16).copyWith(bottom: 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'NAMA PEMESAN *',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 11,
+                    color: Colors.grey,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                _buildCustomerDropdown(),
+              ],
+            ),
+          ),
+
           // Info bar
           Container(
             padding: const EdgeInsets.all(12),
@@ -367,6 +388,7 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
             useProductTypeAsFilter: true,
             isSelected: (p) => _selectedProducts.containsKey(p),
             getQuantity: (p) => _selectedProducts[p] ?? 0,
+            getDisplayPrice: _getPrice,
             onProductTap: _addProduct,
             onDecrement: _decreaseProduct,
           ),
@@ -389,20 +411,6 @@ class _OrderFormPageState extends ConsumerState<OrderFormPage> {
               color: Colors.grey.shade800,
             ),
           ),
-          const SizedBox(height: 16),
-
-          // Customer dropdown
-          const Text(
-            'NAMA PEMESAN *',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 11,
-              color: Colors.grey,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _buildCustomerDropdown(),
           const SizedBox(height: 16),
 
           // Date pickers

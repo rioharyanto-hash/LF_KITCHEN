@@ -69,6 +69,7 @@ Semua perubahan dan peningkatan fitur aplikasi akan didokumentasikan di sini.
 ## [Unreleased]
 ### Added
 - [2026-02-25] [FEATURE] Fitur akumulasi tagihan belum dibayar per pelanggan dengan perincian produk di halaman Tagihan.
+- [2026-02-26] [FEATURE] Dynamic Pricing: Harga item pada form pesanan dan snack box akan otomatis menyesuaikan dengan `specialPrice` jika "NAMA PEMESAN" memiliki status pelanggan prioritas (harga khusus).
 - Laporan Keuangan Detail
 - Integrasi Printer Thermal Bluetooth
 
@@ -77,6 +78,8 @@ Semua perubahan dan peningkatan fitur aplikasi akan didokumentasikan di sini.
 - [2026-02-26] [FIX] Sanitasi karakter Unicode (hyphen/dash) pada nama produk di PDF cetak.
 - [2026-02-26] [FIX] Mengganti gambar tanda tangan manual dengan QR Code pada kwitansi PDF.
 - [2026-02-26] [FIX] Field "Catatan Tambahan" yang hilang di tampilan mobile (halaman Pesanan & Snack Box) telah dimunculkan kembali.
+- [2026-02-26] [UI/UX] Memindahkan dropdown "NAMA PEMESAN" ke bagian paling atas form pada tampilan mobile agar alur (Who -> What -> Kapan) menjadi lebih intuitif dan memicu perubahan harga dinamis secara langsung.
+
 
 ---
 
